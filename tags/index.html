@@ -112,7 +112,7 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="tags">
 <meta property="og:url" content="sephirxth.github.io/tags/index.html">
-<meta property="og:site_name" content="应许之地">
+<meta property="og:site_name" content="𒂗𒆠𒆕">
 <meta property="og:description" content="游戏,思考,分析">
 <meta property="og:locale" content="zh-CN">
 <meta property="og:updated_time" content="2018-08-18T14:47:22.592Z">
@@ -135,7 +135,7 @@
   };
 </script>
 
-  <title>tags | 应许之地</title>
+  <title>tags | 𒂗𒆠𒆕</title>
   
 
 
@@ -193,7 +193,7 @@
     <div class="custom-logo-site-title">
       <a href="/" class="brand" rel="start">
         <span class="logo-line-before"><i></i></span>
-        <span class="site-title">应许之地</span>
+        <span class="site-title">𒂗𒆠𒆕</span>
         <span class="logo-line-after"><i></i></span>
       </a>
     </div>
@@ -356,11 +356,9 @@
           
 
   
-    <div class="comments" id="comments">
-      <div id="lv-container" data-id="city" data-uid="MTAyMC8zODI2OS8xNDc5Nw=="></div>
-    </div>
-
+ <div id="gitalk-container"></div>
   
+
 
 
 
@@ -602,17 +600,6 @@
 
 
   
-    <script type="text/javascript">
-      (function(d, s) {
-        var j, e = d.getElementsByTagName(s)[0];
-        if (typeof LivereTower === 'function') { return; }
-        j = d.createElement(s);
-        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
-        j.async = true;
-        e.parentNode.insertBefore(j, e);
-      })(document, 'script');
-    </script>
-  
 
 
 
@@ -620,6 +607,31 @@
 
 
 
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: 'a31fd9a3e0caa093c28f',
+          clientSecret: 'a31fd9a3e0caa093c28f',
+          repo: 'gitalk',
+          owner: 'geedme',
+          admin: ['geedme'],
+          id: location.pathname,
+          labels: 'gitalk',
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: true,
+          distractionFreeMode: true
+        })
+
+        gitalk.render('gitalk-container')           
+       </script>
 
 
 

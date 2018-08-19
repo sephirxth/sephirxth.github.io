@@ -112,10 +112,10 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="关于博客">
 <meta property="og:url" content="sephirxth.github.io/about/index.html">
-<meta property="og:site_name" content="应许之地">
+<meta property="og:site_name" content="𒂗𒆠𒆕">
 <meta property="og:description" content="目前计划输出的内容主要在于游戏相关的思考和整理。 关键词：自组织，系统驱动，涌现  目的     就某一方面的问题提供一个自由可控的交流平台。 给自己提供一个整理思绪和记录的地方   技术支持框架 Hexo主题 Next托管 GitHub Pages    图片资源    主页背景: 万智牌，祖神兽 Favicon : 元胞自动机演化图，使用Mathematica 制作   工作日志  my bl">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2018-08-19T00:50:36.218Z">
+<meta property="og:updated_time" content="2018-08-19T03:39:58.474Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="关于博客">
 <meta name="twitter:description" content="目前计划输出的内容主要在于游戏相关的思考和整理。 关键词：自组织，系统驱动，涌现  目的     就某一方面的问题提供一个自由可控的交流平台。 给自己提供一个整理思绪和记录的地方   技术支持框架 Hexo主题 Next托管 GitHub Pages    图片资源    主页背景: 万智牌，祖神兽 Favicon : 元胞自动机演化图，使用Mathematica 制作   工作日志  my bl">
@@ -135,7 +135,7 @@
   };
 </script>
 
-  <title>关于博客 | 应许之地</title>
+  <title>关于博客 | 𒂗𒆠𒆕</title>
   
 
 
@@ -193,7 +193,7 @@
     <div class="custom-logo-site-title">
       <a href="/" class="brand" rel="start">
         <span class="logo-line-before"><i></i></span>
-        <span class="site-title">应许之地</span>
+        <span class="site-title">𒂗𒆠𒆕</span>
         <span class="logo-line-after"><i></i></span>
       </a>
     </div>
@@ -407,6 +407,8 @@
 </li>
 <li><p>更改站点名，<del>应许之地</del> </p>
 </li>
+<li><p>来比力评论有时候加载不出来，尤其是不上代理的时候，考虑换成其他加载快，评论方便，提供匿名讨论的评论系统</p>
+</li>
 </ul>
 
         
@@ -429,11 +431,9 @@
           
 
   
-    <div class="comments" id="comments">
-      <div id="lv-container" data-id="city" data-uid="MTAyMC8zODI2OS8xNDc5Nw=="></div>
-    </div>
-
+ <div id="gitalk-container"></div>
   
+
 
 
 
@@ -700,17 +700,6 @@
 
 
   
-    <script type="text/javascript">
-      (function(d, s) {
-        var j, e = d.getElementsByTagName(s)[0];
-        if (typeof LivereTower === 'function') { return; }
-        j = d.createElement(s);
-        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
-        j.async = true;
-        e.parentNode.insertBefore(j, e);
-      })(document, 'script');
-    </script>
-  
 
 
 
@@ -718,6 +707,31 @@
 
 
 
+
+
+
+
+  <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+
+  <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+   <script type="text/javascript">
+        var gitalk = new Gitalk({
+          clientID: 'a31fd9a3e0caa093c28f',
+          clientSecret: 'a31fd9a3e0caa093c28f',
+          repo: 'gitalk',
+          owner: 'geedme',
+          admin: ['geedme'],
+          id: location.pathname,
+          labels: 'gitalk',
+          perPage: 15,
+          pagerDirection: 'last',
+          createIssueManually: true,
+          distractionFreeMode: true
+        })
+
+        gitalk.render('gitalk-container')           
+       </script>
 
 
 
