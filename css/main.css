@@ -1848,7 +1848,7 @@ img:hover {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #b32f4d;
+  background: #743966;
 }
 .links-of-blogroll {
   font-size: 13px;
@@ -2587,7 +2587,7 @@ embed {
   display: inline-block;
 }
 body {
-  background: url("../images/backgrounds/Yennefer.png");
+  background: url("../images/backgrounds/Progenitus.jpg");
   background-attachment: fixed;
   background-repeat: no-repeat;
   background-size: cover;
