@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.2.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha256-XOqroi11tY4EFQMR9ZYwZWKj5ZXiftSx36RRuC3anlA=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sephirxth.github.io","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.20.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"width":300},"copycode":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":true,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前言群晖 NAS 是一款功能强大的网络存储设备，支持通过 Docker 套件安装和运行各种应用。然而，由于某些原因，群晖 NAS 可能无法直接访问 Docker Hub 官方镜像。本文将介绍如何通过在局域网内的另一台主机上设置代理，让群晖 NAS 能够访问 Docker Hub 官方镜像。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="应对群晖 NAS 无法访问 Docker Hub 官方镜像的问题">
+<meta property="og:url" content="https://sephirxth.github.io/2024/05/12/%E5%BA%94%E5%AF%B9%E7%BE%A4%E6%99%96%20NAS%20%E6%97%A0%E6%B3%95%E8%AE%BF%E9%97%AE%20Docker%20Hub%20%E5%AE%98%E6%96%B9%E9%95%9C%E5%83%8F%E7%9A%84%E9%97%AE%E9%A2%98/index.html">
+<meta property="og:site_name" content="Intellectual Lust">
+<meta property="og:description" content="前言群晖 NAS 是一款功能强大的网络存储设备，支持通过 Docker 套件安装和运行各种应用。然而，由于某些原因，群晖 NAS 可能无法直接访问 Docker Hub 官方镜像。本文将介绍如何通过在局域网内的另一台主机上设置代理，让群晖 NAS 能够访问 Docker Hub 官方镜像。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://sephirxth.github.io/attachment/578d26d7e0d6b4fc8492c6e29e63c2cd.png">
+<meta property="og:image" content="https://sephirxth.github.io/attachment/7bd7fb4a64f60443a59df13bb991eb3d.png">
+<meta property="og:image" content="https://sephirxth.github.io/attachment/6745d288d56ba1796e79f49989677978.png">
+<meta property="article:published_time" content="2024-05-12T14:01:29.000Z">
+<meta property="article:modified_time" content="2024-05-14T14:39:23.667Z">
+<meta property="article:author" content="游渊 YouYuan">
+<meta property="article:tag" content="群晖NAS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://sephirxth.github.io/attachment/578d26d7e0d6b4fc8492c6e29e63c2cd.png">
+
+
+<link rel="canonical" href="https://sephirxth.github.io/2024/05/12/%E5%BA%94%E5%AF%B9%E7%BE%A4%E6%99%96%20NAS%20%E6%97%A0%E6%B3%95%E8%AE%BF%E9%97%AE%20Docker%20Hub%20%E5%AE%98%E6%96%B9%E9%95%9C%E5%83%8F%E7%9A%84%E9%97%AE%E9%A2%98/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://sephirxth.github.io/2024/05/12/%E5%BA%94%E5%AF%B9%E7%BE%A4%E6%99%96%20NAS%20%E6%97%A0%E6%B3%95%E8%AE%BF%E9%97%AE%20Docker%20Hub%20%E5%AE%98%E6%96%B9%E9%95%9C%E5%83%8F%E7%9A%84%E9%97%AE%E9%A2%98/","path":"2024/05/12/应对群晖 NAS 无法访问 Docker Hub 官方镜像的问题/","title":"应对群晖 NAS 无法访问 Docker Hub 官方镜像的问题"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>应对群晖 NAS 无法访问 Docker Hub 官方镜像的问题 | Intellectual Lust</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125329104-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-125329104-1","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Intellectual Lust</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-随想"><a href="/%E9%9A%8F%E6%83%B3/" rel="section"><i class="fa fa-paper-plane fa-fw"></i>随想</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E7%BD%AE%E8%A6%81%E6%B1%82"><span class="nav-number">2.</span> <span class="nav-text">前置要求</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Step-1%EF%BC%9A-%E9%85%8D%E7%BD%AE%E5%B1%80%E5%9F%9F%E7%BD%91%E5%86%85%E4%B8%BB%E6%9C%BA%E7%9A%84%E4%BB%A3%E7%90%86%E6%9C%8D%E5%8A%A1%E5%99%A8"><span class="nav-number">2.1.</span> <span class="nav-text">Step 1： 配置局域网内主机的代理服务器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Step-2%EF%BC%9A-%E5%9C%A8%E7%BE%A4%E6%99%96-NAS-%E4%B8%8A%E9%85%8D%E7%BD%AE-Docker-%E4%BB%A3%E7%90%86"><span class="nav-number">2.2.</span> <span class="nav-text">Step 2： 在群晖 NAS 上配置 Docker 代理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Step-3%EF%BC%9A-%E9%AA%8C%E8%AF%81%E4%BB%A3%E7%90%86%E8%AE%BE%E7%BD%AE"><span class="nav-number">2.3.</span> <span class="nav-text">Step 3： 验证代理设置</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95%EF%BC%9A"><span class="nav-number">3.</span> <span class="nav-text">其他解决方法：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="nav-number">4.</span> <span class="nav-text">总结：</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">游渊 YouYuan</p>
+  <div class="site-description" itemprop="description">personal blog</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">3</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://sephirxth.github.io/2024/05/12/%E5%BA%94%E5%AF%B9%E7%BE%A4%E6%99%96%20NAS%20%E6%97%A0%E6%B3%95%E8%AE%BF%E9%97%AE%20Docker%20Hub%20%E5%AE%98%E6%96%B9%E9%95%9C%E5%83%8F%E7%9A%84%E9%97%AE%E9%A2%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="游渊 YouYuan">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Intellectual Lust">
+      <meta itemprop="description" content="personal blog">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="应对群晖 NAS 无法访问 Docker Hub 官方镜像的问题 | Intellectual Lust">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          应对群晖 NAS 无法访问 Docker Hub 官方镜像的问题
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-05-12 22:01:29" itemprop="dateCreated datePublished" datetime="2024-05-12T22:01:29+08:00">2024-05-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2024-05-14 22:39:23" itemprop="dateModified" datetime="2024-05-14T22:39:23+08:00">2024-05-14</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>群晖 NAS 是一款功能强大的网络存储设备，支持通过 Docker 套件安装和运行各种应用。然而，由于某些原因，群晖 NAS 可能无法直接访问 Docker Hub 官方镜像。本文将介绍如何通过在局域网内的另一台主机上设置代理，让群晖 NAS 能够访问 Docker Hub 官方镜像。</p>
+<span id="more"></span>
+<h2 id="前置要求"><a href="#前置要求" class="headerlink" title="前置要求"></a>前置要求</h2><ul>
+<li>一台群晖 NAS 设备，已安装 Docker 套件</li>
+<li>局域网内的另一台主机，可以访问 Docker Hub 官方镜像</li>
+<li>在局域网内主机上安装并配置代理服务器</li>
+</ul>
+<h3 id="Step-1：-配置局域网内主机的代理服务器"><a href="#Step-1：-配置局域网内主机的代理服务器" class="headerlink" title="Step 1： 配置局域网内主机的代理服务器"></a>Step 1： 配置局域网内主机的代理服务器</h3><ol>
+<li>在局域网内主机上安装并配置选择的代理服务器，如 Shadowsocks 或 V2Ray。</li>
+<li>确保代理服务器正常运行，并监听在局域网内主机的特定端口(如 1080)。</li>
+<li>勾选。</li>
+</ol>
+<h3 id="Step-2：-在群晖-NAS-上配置-Docker-代理"><a href="#Step-2：-在群晖-NAS-上配置-Docker-代理" class="headerlink" title="Step 2： 在群晖 NAS 上配置 Docker 代理"></a>Step 2： 在群晖 NAS 上配置 Docker 代理</h3><h4 id="方法一-：设置群晖系统代理"><a href="#方法一-：设置群晖系统代理" class="headerlink" title="方法一 ：设置群晖系统代理"></a>方法一 ：设置群晖系统代理</h4><p>在运行代理服务的主机上，开启”允许来自局域网的连接“<br><img src="/attachment/578d26d7e0d6b4fc8492c6e29e63c2cd.png"></p>
+<p><img src="/attachment/7bd7fb4a64f60443a59df13bb991eb3d.png"><br><img src="/attachment/6745d288d56ba1796e79f49989677978.png"><br>例如，群晖NAS和运行代理服务的主机在同一家庭路由器下，可能是192.168.1.100<br>群晖NAS和运行代理服务的主机在zotero或tailscale 组成的网络内，可能是172.X.X.X，100.X.X.X。</p>
+<p>注意，当使用群晖系统代理服务，而运行代理服务的主机不在线，群晖可能无法访问网络。</p>
+<h4 id="方法二：单独设置Docker代理"><a href="#方法二：单独设置Docker代理" class="headerlink" title="方法二：单独设置Docker代理"></a>方法二：单独设置Docker代理</h4><ol>
+<li>通过 SSH 登录到群晖 NAS，或在群晖 DSM 的 “Control Panel” 中打开 “Terminal &amp; SNMP”。</li>
+<li>执行以下命令，为 Docker 设置 HTTP 代理：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo mkdir -p /etc/systemd/system/docker.service.d</span><br><span class="line">sudo echo -e &quot;[Service]\nEnvironment=\&quot;HTTP_PROXY=http：//&lt;proxy_host_ip&gt;：&lt;proxy_port&gt;\&quot;&quot; &gt; /etc/systemd/system/docker.service.d/http-proxy.conf</span><br></pre></td></tr></table></figure>
+将 <code>&lt;proxy_host_ip&gt;</code> 和 <code>&lt;proxy_port&gt;</code> 替换为局域网内主机的 IP 地址和代理服务器的端口号。</li>
+<li>执行以下命令，为 Docker 设置 HTTPS 代理：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo echo -e &quot;[Service]\nEnvironment=\&quot;HTTPS_PROXY=http：//&lt;proxy_host_ip&gt;：&lt;proxy_port&gt;\&quot;&quot; &gt; /etc/systemd/system/docker.service.d/https-proxy.conf</span><br></pre></td></tr></table></figure></li>
+<li>重新加载 systemd 配置并重启 Docker 服务：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo systemctl daemon-reload</span><br><span class="line">sudo systemctl restart docker</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h3 id="Step-3：-验证代理设置"><a href="#Step-3：-验证代理设置" class="headerlink" title="Step 3： 验证代理设置"></a>Step 3： 验证代理设置</h3><ol>
+<li>在群晖 NAS 上打开 Docker 套件。</li>
+<li>选择 “注册表&#x2F;Registry”，搜索一个官方镜像，如 “ubuntu”。</li>
+<li>如果可以成功搜索并下载官方镜像，则代理设置生效。</li>
+</ol>
+<h2 id="其他解决方法："><a href="#其他解决方法：" class="headerlink" title="其他解决方法："></a>其他解决方法：</h2><p>使用换源的方式访问docker 的镜像源，参见：<a target="_blank" rel="noopener" href="https://imnks.com/8302.html">关于Docker官方镜像仓库被墙的一些解决办法 群晖已修复！ - 我不是矿神</a>，但是似乎不支持群晖DSM 6。</p>
+<h2 id="总结："><a href="#总结：" class="headerlink" title="总结："></a>总结：</h2><p>通过在局域网内的另一台主机上设置代理，并在群晖 NAS 上配置 Docker 代理设置，可以成功解决群晖 NAS 无法访问 Docker Hub 官方镜像的问题。这种方法不仅适用于群晖 NAS，也可以应用于其他无法直接访问 Docker Hub 的设备或网络环境。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>请我一杯咖啡吧！</div>
+  <button>
+    赞赏
+  </button>
+  <div class="post-reward">
+
+  </div>
+</div>
+
+          <div class="followme">
+  <span>欢迎关注我的其它发布渠道</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/%E7%BE%A4%E6%99%96NAS/" rel="tag"># 群晖NAS</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/05/14/%E5%8A%A0%E9%80%9F%E5%A4%96%E9%83%A8%E8%AE%BF%E9%97%AENAS%EF%BC%9A%E6%97%A0%E9%9C%80%E5%9F%9F%E5%90%8D%E5%BB%BA%E7%AB%8Btailscale%20derp%E4%B8%AD%E7%BB%A7%E6%9C%8D%E5%8A%A1/" rel="prev" title="加速外部访问NAS：无需域名建立tailscale derp中继服务">
+                  <i class="fa fa-angle-left"></i> 加速外部访问NAS：无需域名建立tailscale derp中继服务
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments gitalk-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2018 – 
+    <span itemprop="copyrightYear">2024</span>
+    <span class="with-love">
+      <i class="fa-solid fa-smog"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">游渊 YouYuan</span>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.1/search.js" integrity="sha256-1kfA5uHPf65M5cphT2dvymhkuyHPQp5A53EGZOnOLmc=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+
+
+  
+
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/gitalk/1.8.0/gitalk.css" integrity="sha256-AJnUHL7dBv6PGaeyPQJcgQPDjt/Hn/PvYZde1iqfp8U=" crossorigin="anonymous">
+
+<script class="next-config" data-name="gitalk" type="application/json">{"enable":true,"github_id":"sephirxth","repo":"gitalk","client_id":"a31fd9a3e0caa093c28f","client_secret":"bc709597f1447998e8a9b3107a8234259d50794a","admin_user":"sephirxth","distraction_free_mode":true,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":null,"owner":"sephirxth","adminUser":"sephirxth","labels":["gitalk"],"perPage":15,"pagerDirection":"last","createIssueManually":false,"distractionFreeMode":true,"js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/gitalk/1.8.0/gitalk.min.js","integrity":"sha256-MVK9MGD/XJaGyIghSVrONSnoXoGh3IFxLw0zfvzpxR4="},"path_md5":"edb2892ad24296563a6a1d2290383ed5"}</script>
+<script src="/js/third-party/comments/gitalk.js"></script>
+
+</body>
+</html>
