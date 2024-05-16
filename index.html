@@ -288,9 +288,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2024-05-14 22:01:29 / 修改时间：22:37:00" itemprop="dateCreated datePublished" datetime="2024-05-14T22:01:29+08:00">2024-05-14</time>
+      <time title="创建时间：2024-05-14 22:01:29" itemprop="dateCreated datePublished" datetime="2024-05-14T22:01:29+08:00">2024-05-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2024-05-16 23:24:40" itemprop="dateModified" datetime="2024-05-16T23:24:40+08:00">2024-05-16</time>
     </span>
 
   
@@ -303,7 +309,123 @@
     
     
     <div class="post-body" itemprop="articleBody">
-          
+          <h2 id="1-简介"><a href="#1-简介" class="headerlink" title="1.  简介"></a>1.  简介</h2><h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>对于NAS玩家，随时随地，而不仅仅是在家庭局域网内，访问自己的NAS是的普遍需求。</p>
+<p>实际使用中，使用Tailscale实现设备间安全连接时,直连并不总是稳定可靠。为了提高Tailscale网络的稳定性和性能, 需要自建DERP中继服务器。 </p>
+<h3 id="参考过的教程"><a href="#参考过的教程" class="headerlink" title="参考过的教程"></a>参考过的教程</h3><ol>
+<li><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/638910565">大内网战略(6)：自建 Tailscale DERP 中继服务器 保姆级教程 - 知乎</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_29064203/article/details/135379460">【傻呱呱】Tailscale 搭建derp中继节点（无需域名）_derp教程-CSDN博客</a></li>
+</ol>
+<h3 id="本文与参考教程区别"><a href="#本文与参考教程区别" class="headerlink" title="本文与参考教程区别"></a>本文与参考教程区别</h3><ul>
+<li>教程1需要域名，本文无需</li>
+<li>教程2需要付费的FinalSHELL工具，本文使用更广泛接受的VS Code。</li>
+<li><h2 id="包含了实践教程1、2过程中遇到的新问题和解决方法"><a href="#包含了实践教程1、2过程中遇到的新问题和解决方法" class="headerlink" title="包含了实践教程1、2过程中遇到的新问题和解决方法"></a>包含了实践教程1、2过程中遇到的新问题和解决方法</h2></li>
+<li>用简化方法达成教程1、2中的部分步骤</li>
+<li>非docker方案，无需docker修改和重新打包</li>
+</ul>
+<h3 id="前置准备"><a href="#前置准备" class="headerlink" title="前置准备"></a>前置准备</h3><p>阿里云ECS Ubuntu 22.04 LTS</p>
+<h3 id="开始"><a href="#开始" class="headerlink" title="开始"></a>开始</h3><h4 id="使用VS-Code连接到阿里云ECS"><a href="#使用VS-Code连接到阿里云ECS" class="headerlink" title="使用VS Code连接到阿里云ECS"></a>使用VS Code连接到阿里云ECS</h4><ol>
+<li><p>在本地计算机上,打开终端或命令提示符。</p>
+</li>
+<li><p>进入 SSH 配置文件所在的目录:</p>
+<ul>
+<li>在 Windows 上,SSH 配置文件通常位于 <code>C:\Users\&lt;your-username&gt;\.ssh\</code> 目录下。</li>
+<li>在 macOS 和 Linux 上,SSH 配置文件通常位于 <code>~/.ssh/</code> 目录下。</li>
+</ul>
+</li>
+<li><p>打开或创建一个名为 <code>config</code> 的文件(如果该文件不存在)。可以使用任何文本编辑器打开该文件,如 VS Code、记事本等。</p>
+</li>
+<li><p>在 <code>config</code> 文件中,添加以下内容:</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Host myremotehost     </span><br><span class="line">HostName your-remote-host-ip-or-domain    </span><br><span class="line">User your-username    </span><br><span class="line">IdentityFile path/to/your/private/key</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>将 <code>myremotehost</code> 替换为你想要给远程主机起的别名,可以是任何易记的名称。</li>
+<li>将 <code>your-remote-host-ip-or-domain</code> 替换为远程主机的 IP 地址或域名。</li>
+<li>将 <code>your-username</code> 替换为你在远程主机上的用户名。</li>
+<li>将 <code>path/to/your/private/key</code> 替换为你的私钥文件的实际路径。</li>
+</ul>
+<p> 例如:<br>  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Host myserver     </span><br><span class="line">HostName 192.168.0.100    </span><br><span class="line">User john    </span><br><span class="line">IdentityFile ~/.ssh/id_rsa</span><br></pre></td></tr></table></figure>
+  </p>
+</li>
+<li><p>保存 <code>config</code> 文件并关闭编辑器。</p>
+</li>
+<li><p>在 VS Code 中,安装 “Remote - SSH” 插件(如果尚未安装)。</p>
+</li>
+<li><p>在 VS Code 中,打开命令面板(可以按 <code>F1</code> 或 <code>Ctrl+Shift+P</code>),然后输入 “Remote-SSH: Connect to Host”。</p>
+</li>
+<li><p>在出现的列表中,选择你在 <code>config</code> 文件中定义的远程主机别名(如 <code>myremotehost</code> 或 <code>myserver</code>)。</p>
+</li>
+<li><p>VS Code 将使用你指定的私钥文件尝试连接到远程主机。如果连接成功,你将看到一个新的 VS Code 窗口,其中打开了远程主机上的文件夹。</p>
+</li>
+</ol>
+<p>现在,你已经成功使用私钥通过 VS Code 的 SSH Remote 插件连接到了远程主机。你可以在 VS Code 中编辑、保存和运行远程主机上的文件和项目了。</p>
+<p>如果在连接过程中遇到任何问题,请确保:</p>
+<ul>
+<li>私钥文件的路径是正确的。</li>
+<li>私钥文件具有正确的权限设置(通常为 <code>600</code> 或 <code>400</code>)。</li>
+<li>远程主机上启用了 SSH 服务,并且防火墙允许 SSH 连接。</li>
+</ul>
+<p>如果问题仍然存在,你可以尝试使用 <code>ssh -i path/to/your/private/key your-username@your-remote-host-ip-or-domain</code> 命令在终端中手动连接到远程主机,以排查可能的问题。</p>
+<h4 id="安装tailscale"><a href="#安装tailscale" class="headerlink" title="安装tailscale"></a>安装tailscale</h4><p><code>curl -fsSL https://tailscale.com/install.sh | sh</code><br><code>sudo tailscale up</code>启动，然后授权加入tailscale网络</p>
+<h4 id="安装Golang"><a href="#安装Golang" class="headerlink" title="安装Golang"></a>安装Golang</h4><p>卸载旧版：<code>sudo rm -rf /usr/local/go</code>。<br>在自己的本地主机上下载最新版Golang <a target="_blank" rel="noopener" href="https://go.dev/doc/install">Download and install - The Go Programming Language</a>。<br>在tailscale设置中启用<a target="_blank" rel="noopener" href="https://tailscale.com/kb/1106/taildrop">Taildrop · Tailscale Docs</a>，右键 <img src="/attachment/f598a3c3862365d0a429daae319485c0.png"><br>在远程主机上运行 <code>sudo tailscale file get .</code>，接收的文件在当前目录。<br>解压Go到相应目录：<code>sudo tar -C /usr/local -xzf $HOME/go&lt;最新版本号&gt;.linux-amd64.tar.gz</code></p>
+<h5 id="配置Golang自动运行"><a href="#配置Golang自动运行" class="headerlink" title="配置Golang自动运行"></a>配置Golang自动运行</h5><p><code>sudo code ~/profile</code><br>末尾粘贴以下代码配置GO的路径，并保存</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> GOROOT=/usr/local/go</span><br><span class="line"><span class="built_in">export</span> GOPATH=/usr/local/gopath</span><br><span class="line"><span class="built_in">export</span> GOBIN=<span class="variable">$GOPATH</span>/bin</span><br><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$PATH</span>:<span class="variable">$GOROOT</span>/bin</span><br><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$PATH</span>:<span class="variable">$GOPATH</span>/bin</span><br></pre></td></tr></table></figure>
+<p>使新配置生效：<code>sudo source ~/profile</code><br>输入<code>go version</code>，如出现版本信息，则配置成功。</p>
+<h4 id="安装-tailscale-derp-服务"><a href="#安装-tailscale-derp-服务" class="headerlink" title="安装 tailscale derp 服务"></a>安装 tailscale derp 服务</h4><p>建立目录：<code>sudo mkdir -p /usr/local/gopath/bin</code></p>
+<p>分别输入并回车以下两行代码，设置go代理+安装</p>
+<p><code>go env -w GOPROXY=https://goproxy.cn,direct</code></p>
+<p><code>go install tailscale.com/cmd/derper@main</code></p>
+<h5 id="修改-derp-以跳过域名需求"><a href="#修改-derp-以跳过域名需求" class="headerlink" title="修改 derp 以跳过域名需求"></a>修改 derp 以跳过域名需求</h5><p>通过 VS code 访问文件 <code>/usr/local/gopath/pkg/mod/tailscale.com@v1.67.0-pre.0.20240510224123-fc1ae97e1037/cmd/derper/cert.go</code><br>如果你安装的tailscale版本、在profile中配置的go目录（tailscale derp下载在go 目录下面）不同，请做相应的修改。也可以使用VS Code搜索该文件。<br>对cert.go做如下修改并保存：<br><img src="/attachment/f807a5533a6fc484cd4f0eb3d4da349d.png"></p>
+<h5 id="重新编译修改过的derp"><a href="#重新编译修改过的derp" class="headerlink" title="重新编译修改过的derp"></a>重新编译修改过的derp</h5><p>切换到cert.go该文件的路径下<br><img src="/attachment/fa26499ad488796731cb22c4866f3f1f.png"><br>重新编译修改过的derp：<code>go build -o /etc/derp/derper</code><br>在&#x2F;etc&#x2F;derp路径下检查derper以验证编译结果。</p>
+<h5 id="自签域名（不会被验证）"><a href="#自签域名（不会被验证）" class="headerlink" title="自签域名（不会被验证）"></a>自签域名（不会被验证）</h5><p><code>openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout /etc/derp/derp.myself.com.key -out /etc/derp/derp.myself.com.crt -subj &quot;/CN=derp.myself.com&quot; -addext &quot;subjectAltName=DNS:derp.myself.com&quot;</code></p>
+<p>这个命令生成了一个自签名的SSL&#x2F;TLS证书,使用RSA算法和4096位私钥,有效期为10年。证书的主题和主题备用名称都设置为 derp.myself.com。生成的私钥和证书分别保存在 &#x2F;etc&#x2F;derp&#x2F;derp.myself.com.key 和 &#x2F;etc&#x2F;derp&#x2F;derp.myself.com.cn.crt 文件中。</p>
+<h5 id="配置修改后的Derp并启动"><a href="#配置修改后的Derp并启动" class="headerlink" title="配置修改后的Derp并启动"></a>配置修改后的Derp并启动</h5><p><code>code /etc/systemd/system/derp.service</code><br>输入以下配置用于启动derp服务（已经配置了只允许tailscale 客户端连接 –verify-clients）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">[Unit]</span><br><span class="line">Description=no domain TS Derper</span><br><span class="line">After=network.target</span><br><span class="line">Wants=network.target</span><br><span class="line"></span><br><span class="line">[Service]</span><br><span class="line">User=root</span><br><span class="line">Restart=always</span><br><span class="line">ExecStart=/etc/derp/derper -hostname derp.myself.com -a :33445 -http-port 33446 -certmode manual -certdir /etc/derp --verify-clients</span><br><span class="line">RestartPreventExitStatus=1</span><br><span class="line"></span><br><span class="line">[Install]</span><br><span class="line">WantedBy=multi-user.target</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>启用derp服务：<code>systemctl daemon-reload</code><br><code>systemctl restart derp</code><br>检查derp状态<br><code>systemctl status derp</code><br>设置开机自启<br><code>systemctl enable derp</code><br>打开阿里云ECS所属的安全组的相应端口（比如示例中设置的33445）<br>网页中输入阿里云ip : “<a target="_blank" rel="noopener" href="https://xxx.xxx.xxx.xxx:33445/">https://xxx.xxx.xxx.xxx:33445</a>“ ，出现“Client sent an HTTP request to an HTTPS server.”字样则成功。</p>
+<h5 id="在tailscale控制台中启动配置好的derp中继"><a href="#在tailscale控制台中启动配置好的derp中继" class="headerlink" title="在tailscale控制台中启动配置好的derp中继"></a>在tailscale控制台中启动配置好的derp中继</h5><p><a target="_blank" rel="noopener" href="https://login.tailscale.com/admin/acls/file">https://login.tailscale.com/admin/acls/file</a></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">// Example/default ACLs for unrestricted connections.</span><br><span class="line">&#123;</span><br><span class="line">	// Declare static groups of users beyond those in the identity service.</span><br><span class="line">	&quot;Groups&quot;: &#123;</span><br><span class="line">		&quot;group:example&quot;: [&quot;user1@example.com&quot;, &quot;user2@example.com&quot;],</span><br><span class="line">	&#125;,</span><br><span class="line">	// Declare convenient hostname aliases to use in place of IP addresses.</span><br><span class="line">	&quot;Hosts&quot;: &#123;</span><br><span class="line">		&quot;example-host-1&quot;: &quot;100.100.100.100&quot;,</span><br><span class="line">	&#125;,</span><br><span class="line">	&quot;ACLs&quot;: [</span><br><span class="line">		// Match absolutely everything. Comment out this section if you want</span><br><span class="line">		// to define specific ACL restrictions.</span><br><span class="line">		&#123;&quot;Action&quot;: &quot;accept&quot;, &quot;Users&quot;: [&quot;*&quot;], &quot;Ports&quot;: [&quot;*:*&quot;]&#125;,</span><br><span class="line">	],</span><br><span class="line">	&quot;derpMap&quot;: &#123;</span><br><span class="line">		//&quot;OmitDefaultRegions&quot;: true,</span><br><span class="line">		&quot;Regions&quot;: &#123;</span><br><span class="line">			&quot;901&quot;: &#123;</span><br><span class="line">				&quot;RegionID&quot;:   901,</span><br><span class="line">				&quot;RegionCode&quot;: &quot;XXXXX&quot;,</span><br><span class="line">				&quot;RegionName&quot;: &quot;XXXXX&quot;,</span><br><span class="line">				&quot;Nodes&quot;: [&#123;</span><br><span class="line">					&quot;Name&quot;:             &quot;XXXXX&quot;,</span><br><span class="line">					&quot;RegionID&quot;:         901,</span><br><span class="line">					&quot;IPv4&quot;:             &quot;XXX.XXX.XXX.XXX&quot;,</span><br><span class="line">					&quot;DERPPort&quot;:         33445,</span><br><span class="line">					&quot;InsecureForTests&quot;: true,</span><br><span class="line">				&#125;],</span><br><span class="line">			&#125;,</span><br><span class="line">		&#125;,</span><br><span class="line">	&#125;, </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>本地机器在命令行中运行<code>tailscale netcheck</code> <code>tailscale status</code>，看到自己的derp即成功。<br>可以通过<code>tailscale ping xxx.xxx.xxx.xxx</code>判断流量路径。</p>
+<p>在开始搭建之前,我们需要准备一台阿里云ECS实例,并且配置好VS Code的Remote-SSH插件,以便于远程管理服务器。接下来,我们将在ECS上安装Tailscale客户端,并配置Subnet Router和Exit Node,以实现不同的流量转发策略。</p>
+<p>搭建DERP服务器的核心步骤包括:编译安装Derp可执行文件、生成自签名SSL&#x2F;TLS证书、创建Systemd服务文件等。在这个过程中,我们需要安装Go编译环境,并且合理配置Derp服务器的各项参数,如监听端口、证书路径等。</p>
+<p>完成搭建后,我们还需要在Tailscale管理控制台添加Derp节点,并在客户端连接该节点,以验证服务器的可用性。同时,我们还要学会如何检查Derp服务的运行状态,以及排查可能出现的问题,如服务无法启动、节点间无法连通等。</p>
+<p>在实践过程中,我遇到了一些技术难点,例如:配置Go环境变量、生成兼容Derp的自签名证书、编写正确的Systemd服务文件等。通过不断尝试和查阅资料,我逐一解决了这些问题,并总结出了一套完整的搭建流程。</p>
+<h3 id="其他几种方法实现外网访问NAS及优缺点对比"><a href="#其他几种方法实现外网访问NAS及优缺点对比" class="headerlink" title="其他几种方法实现外网访问NAS及优缺点对比"></a>其他几种方法实现外网访问NAS及优缺点对比</h3><h4 id="Tailscale-vs-Zerotier-ONE"><a href="#Tailscale-vs-Zerotier-ONE" class="headerlink" title="Tailscale vs. Zerotier ONE"></a>Tailscale vs. Zerotier ONE</h4><p><strong>优势:</strong><br>同为无需将自己的NAS暴露在公网上带来的方案，安全性均较高。</p>
+<ul>
+<li><strong>简单性</strong>: Tailscale更易于设置和使用，用户友好。</li>
+<li><strong>可能的性能优势</strong>：Tailscale 使用 WireGuard 协议，该协议以简单、高效、易于审计而闻名，这有助于其性能优势。这通常可以使 Tailscale 更快，特别是在设备不在同一子网中的配置中（<a target="_blank" rel="noopener" href="https://www.wundertech.net/tailscale-vs-zerotier-side-by-side-comparison/">WunderTech</a> ）。另一方面，ZeroTier 采用自己的基于 UDP 的协议，该协议可能无法与 WireGuard 的速度相匹配，但可提供强大的性能以及设置私有根服务器的灵活性​（<a target="_blank" rel="noopener" href="https://www.wundertech.net/tailscale-vs-zerotier-side-by-side-comparison/">WunderTech</a> ）(​​ <a target="_blank" rel="noopener" href="https://techcult.com/zerotier-vs-tailscale/">TechCult</a> ）。<br>参考：<a target="_blank" rel="noopener" href="https://post.smzdm.com/p/741270/?send_by=2491114434">无公网IP搞定群晖+ZEROTIER ONE实现内网穿透_NAS存储_什么值得买</a></li>
+</ul>
+<h4 id="Tailscale-vs-DDNS、Quick-Connect"><a href="#Tailscale-vs-DDNS、Quick-Connect" class="headerlink" title="Tailscale vs. DDNS、Quick Connect"></a>Tailscale vs. DDNS、Quick Connect</h4><p><strong>优势:</strong> 同为实现外网访问NAS的方案，Tailscale在多个关键领域表现优于DDNS，具体优势如下：</p>
+<ul>
+<li><strong>简单性</strong>: Tailscale的设置和使用过程更为简单直接。用户只需在NAS上安装Tailscale客户端，并登录账户即可实现设备间的自动连接，无需手动处理IP地址和端口转发设置。</li>
+<li><strong>安全性</strong>: Tailscale利用WireGuard协议，为数据传输提供端到端加密，大大增强了通信的安全性。相比之下，DDNS需通过端口转发实现远程访问，这可能会暴露网络端口给潜在的网络攻击。</li>
+<li><strong>稳定性</strong>: Tailscale的连接稳定性更优，不受动态IP变化的影响。DDNS服务依赖于及时的IP地址更新，如果DNS更新有延迟，可能会导致服务中断。</li>
+<li><strong>管理与维护</strong>: Tailscale提供中央管理界面，用户可以轻松管理设备和权限配置。DDNS配置较为分散，每次IP变更可能都需要手动检查和调整设置。</li>
+</ul>
+<h4 id="Tailscale-vs-公网IP"><a href="#Tailscale-vs-公网IP" class="headerlink" title="Tailscale vs. 公网IP"></a>Tailscale vs. 公网IP</h4><p><strong>优势:</strong></p>
+<ul>
+<li><strong>安全</strong>:无需暴露家庭NAS在公网上。</li>
+<li><strong>易用和门槛</strong>: 不是所有地区和运营商均可以提供固定的公网IP，但Tailscale开箱即用。</li>
+<li><strong>成本</strong>: 固定的公网IP通常需要较高的费用。<br><strong>劣势:</strong> 直连可能更稳定高速。</li>
+</ul>
+<h4 id="Tailscale-with-subnet-router"><a href="#Tailscale-with-subnet-router" class="headerlink" title="Tailscale with subnet router"></a>Tailscale with subnet router</h4><p>subnet router 子网路由</p>
+<ul>
+<li>配置相对复杂,需要仔细规划子网划分和路由规则。</li>
+<li>可能需要调整现有网络的IP地址分配。</li>
+</ul>
+<h4 id="Tailscale-with-Exit-Node"><a href="#Tailscale-with-Exit-Node" class="headerlink" title="Tailscale with Exit Node"></a>Tailscale with Exit Node</h4><ul>
+<li><strong>优势:</strong><ul>
+<li>配置简单,将所有流量转发到指定节点,无需考虑子网划分。</li>
+<li>适合为整个Tailscale网络提供统一的出口。</li>
+</ul>
+</li>
+<li><strong>劣势:</strong><ul>
+<li>所有流量都经过Exit Node,可能导致网络性能下降和出口节点压力增大。</li>
+<li>出口节点故障可能影响整个网络的连通性。</li>
+<li>隐私性相对较低,Exit Node可以监视和控制所有流量。</li>
+</ul>
+</li>
+</ul>
+
       
     </div>
 
