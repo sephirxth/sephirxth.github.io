@@ -30,7 +30,7 @@
 <meta property="og:image" content="https://sephirxth.github.io/attachment/f807a5533a6fc484cd4f0eb3d4da349d.png">
 <meta property="og:image" content="https://sephirxth.github.io/attachment/fa26499ad488796731cb22c4866f3f1f.png">
 <meta property="article:published_time" content="2024-05-16T15:25:29.000Z">
-<meta property="article:modified_time" content="2024-05-16T15:28:07.647Z">
+<meta property="article:modified_time" content="2024-05-18T03:11:08.107Z">
 <meta property="article:author" content="游渊 YouYuan">
 <meta property="article:tag" content="群晖NAS">
 <meta property="article:tag" content="tailscale">
@@ -221,9 +221,15 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2024-05-16 23:25:29 / 修改时间：23:28:07" itemprop="dateCreated datePublished" datetime="2024-05-16T23:25:29+08:00">2024-05-16</time>
+      <time title="创建时间：2024-05-16 23:25:29" itemprop="dateCreated datePublished" datetime="2024-05-16T23:25:29+08:00">2024-05-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">更新于</span>
+      <time title="修改时间：2024-05-18 11:11:08" itemprop="dateModified" datetime="2024-05-18T11:11:08+08:00">2024-05-18</time>
     </span>
 
   
@@ -294,9 +300,9 @@
 <p>如果问题仍然存在,你可以尝试使用 <code>ssh -i path/to/your/private/key your-username@your-remote-host-ip-or-domain</code> 命令在终端中手动连接到远程主机,以排查可能的问题。</p>
 <h4 id="安装tailscale"><a href="#安装tailscale" class="headerlink" title="安装tailscale"></a>安装tailscale</h4><p><code>curl -fsSL https://tailscale.com/install.sh | sh</code><br><code>sudo tailscale up</code>启动，然后授权加入tailscale网络</p>
 <h4 id="安装Golang"><a href="#安装Golang" class="headerlink" title="安装Golang"></a>安装Golang</h4><p>卸载旧版：<code>sudo rm -rf /usr/local/go</code>。<br>在自己的本地主机上下载最新版Golang <a target="_blank" rel="noopener" href="https://go.dev/doc/install">Download and install - The Go Programming Language</a>。<br>在tailscale设置中启用<a target="_blank" rel="noopener" href="https://tailscale.com/kb/1106/taildrop">Taildrop · Tailscale Docs</a>，右键 <img src="/attachment/f598a3c3862365d0a429daae319485c0.png"><br>在远程主机上运行 <code>sudo tailscale file get .</code>，接收的文件在当前目录。<br>解压Go到相应目录：<code>sudo tar -C /usr/local -xzf $HOME/go&lt;最新版本号&gt;.linux-amd64.tar.gz</code></p>
-<h5 id="配置Golang自动运行"><a href="#配置Golang自动运行" class="headerlink" title="配置Golang自动运行"></a>配置Golang自动运行</h5><p><code>sudo code ~/profile</code><br>末尾粘贴以下代码配置GO的路径，并保存</p>
+<h5 id="配置Golang自动运行"><a href="#配置Golang自动运行" class="headerlink" title="配置Golang自动运行"></a>配置Golang自动运行</h5><p><code>sudo code ~/.profile</code><br>末尾粘贴以下代码配置GO的路径，并保存</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> GOROOT=/usr/local/go</span><br><span class="line"><span class="built_in">export</span> GOPATH=/usr/local/gopath</span><br><span class="line"><span class="built_in">export</span> GOBIN=<span class="variable">$GOPATH</span>/bin</span><br><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$PATH</span>:<span class="variable">$GOROOT</span>/bin</span><br><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$PATH</span>:<span class="variable">$GOPATH</span>/bin</span><br></pre></td></tr></table></figure>
-<p>使新配置生效：<code>sudo source ~/profile</code><br>输入<code>go version</code>，如出现版本信息，则配置成功。</p>
+<p>使新配置生效：<code>sudo source ~/.profile</code><br>输入<code>go version</code>，如出现版本信息，则配置成功。</p>
 <h4 id="安装-tailscale-derp-服务"><a href="#安装-tailscale-derp-服务" class="headerlink" title="安装 tailscale derp 服务"></a>安装 tailscale derp 服务</h4><p>建立目录：<code>sudo mkdir -p /usr/local/gopath/bin</code></p>
 <p>分别输入并回车以下两行代码，设置go代理+安装</p>
 <p><code>go env -w GOPROXY=https://goproxy.cn,direct</code></p>
