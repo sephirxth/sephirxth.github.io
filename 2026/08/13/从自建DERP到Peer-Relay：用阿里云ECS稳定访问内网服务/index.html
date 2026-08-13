@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.3.0">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha256-XOqroi11tY4EFQMR9ZYwZWKj5ZXiftSx36RRuC3anlA=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sephirxth.github.io","root":"/","images":"/images","scheme":"Muse","darkmode":false,"version":"8.20.0","exturl":false,"sidebar":{"position":"left","width_expanded":320,"width_dual_column":240,"display":"post","padding":18,"offset":12,"width":300},"copycode":{"enable":false,"style":null},"fold":{"enable":false,"height":500},"bookmark":{"enable":true,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":true,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="我认为 Peer Relay 解决的不是“能不能连上”，是“已经能连上，但中继链路还不够稳定”。 2024 年我在阿里云 ECS 上搭过一套自建 Tailscale DERP，当时是为了在外网访问 NAS。现在的需求变了：我需要在另一台电脑上访问家里 WSL 中的 GAG（Game Assets Generator）服务，传输图片、音频和模型资产。原来的 DERP 可以用，但延迟会从 45–53">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从自建DERP到Peer Relay：用阿里云ECS稳定访问内网服务">
+<meta property="og:url" content="https://sephirxth.github.io/2026/08/13/%E4%BB%8E%E8%87%AA%E5%BB%BADERP%E5%88%B0Peer-Relay%EF%BC%9A%E7%94%A8%E9%98%BF%E9%87%8C%E4%BA%91ECS%E7%A8%B3%E5%AE%9A%E8%AE%BF%E9%97%AE%E5%86%85%E7%BD%91%E6%9C%8D%E5%8A%A1/index.html">
+<meta property="og:site_name" content="Intellectual Lust">
+<meta property="og:description" content="我认为 Peer Relay 解决的不是“能不能连上”，是“已经能连上，但中继链路还不够稳定”。 2024 年我在阿里云 ECS 上搭过一套自建 Tailscale DERP，当时是为了在外网访问 NAS。现在的需求变了：我需要在另一台电脑上访问家里 WSL 中的 GAG（Game Assets Generator）服务，传输图片、音频和模型资产。原来的 DERP 可以用，但延迟会从 45–53">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-13T10:30:00.000Z">
+<meta property="article:modified_time" content="2026-08-13T09:19:30.481Z">
+<meta property="article:author" content="游渊 YouYuan">
+<meta property="article:tag" content="tailscale">
+<meta property="article:tag" content="peer relay">
+<meta property="article:tag" content="阿里云ECS">
+<meta property="article:tag" content="网络">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://sephirxth.github.io/2026/08/13/%E4%BB%8E%E8%87%AA%E5%BB%BADERP%E5%88%B0Peer-Relay%EF%BC%9A%E7%94%A8%E9%98%BF%E9%87%8C%E4%BA%91ECS%E7%A8%B3%E5%AE%9A%E8%AE%BF%E9%97%AE%E5%86%85%E7%BD%91%E6%9C%8D%E5%8A%A1/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://sephirxth.github.io/2026/08/13/%E4%BB%8E%E8%87%AA%E5%BB%BADERP%E5%88%B0Peer-Relay%EF%BC%9A%E7%94%A8%E9%98%BF%E9%87%8C%E4%BA%91ECS%E7%A8%B3%E5%AE%9A%E8%AE%BF%E9%97%AE%E5%86%85%E7%BD%91%E6%9C%8D%E5%8A%A1/","path":"2026/08/13/从自建DERP到Peer-Relay：用阿里云ECS稳定访问内网服务/","title":"从自建DERP到Peer Relay：用阿里云ECS稳定访问内网服务"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>从自建DERP到Peer Relay：用阿里云ECS稳定访问内网服务 | Intellectual Lust</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GWLH236264"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"G-GWLH236264","only_pageview":false,"measure_protocol_api_secret":null}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Intellectual Lust</p>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="搜索" role="button">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li><li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li><li class="menu-item menu-item-随想"><a href="/%E9%9A%8F%E6%83%B3/" rel="section"><i class="fa fa-paper-plane fa-fw"></i>随想</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%88%E8%AF%B4%E7%BB%93%E6%9E%9C"><span class="nav-number">1.</span> <span class="nav-text">先说结果</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Peer-Relay-%E5%92%8C-DERP-%E5%88%B0%E5%BA%95%E6%98%AF%E4%BB%80%E4%B9%88%E5%85%B3%E7%B3%BB"><span class="nav-number">2.</span> <span class="nav-text">Peer Relay 和 DERP 到底是什么关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%91%E7%9A%84%E9%83%A8%E7%BD%B2%E7%BB%93%E6%9E%84"><span class="nav-number">3.</span> <span class="nav-text">我的部署结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9C%A8-ECS-%E4%B8%8A%E5%90%AF%E5%8A%A8-Peer-Relay"><span class="nav-number">4.</span> <span class="nav-text">在 ECS 上启动 Peer Relay</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Access-Controls-%E9%87%8C%E7%9A%84-grant-%E6%89%8D%E6%98%AF%E7%9C%9F%E6%AD%A3%E7%9A%84%E5%BC%80%E5%85%B3"><span class="nav-number">5.</span> <span class="nav-text">Access Controls 里的 grant 才是真正的开关</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E7%A1%AE%E8%AE%A4%E7%9C%9F%E7%9A%84%E8%B5%B0%E4%BA%86-Peer-Relay"><span class="nav-number">6.</span> <span class="nav-text">怎么确认真的走了 Peer Relay</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%98%AF%E5%90%A6%E6%94%B6%E5%88%B0-Relay-%E5%80%99%E9%80%89"><span class="nav-number">6.1.</span> <span class="nav-text">1. 客户端是否收到 Relay 候选</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%AE%9E%E9%99%85%E8%B7%AF%E5%BE%84%E6%98%AF%E5%90%A6%E4%BB%8E-DERP-%E5%88%87%E6%8D%A2"><span class="nav-number">6.2.</span> <span class="nav-text">2. 实际路径是否从 DERP 切换</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-ECS-%E6%98%AF%E5%90%A6%E7%9C%9F%E7%9A%84%E5%9C%A8%E8%BD%AC%E5%8F%91"><span class="nav-number">6.3.</span> <span class="nav-text">3. ECS 是否真的在转发</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%99%E6%AC%A1%E9%81%87%E5%88%B0%E7%9A%84%E4%B8%A4%E4%B8%AA%E5%81%87%E8%B1%A1"><span class="nav-number">7.</span> <span class="nav-text">这次遇到的两个假象</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AB%AF%E5%8F%A3%E9%80%9A%E4%BA%86%EF%BC%8C%E4%B8%8D%E7%AD%89%E4%BA%8E-Peer-Relay-%E7%94%9F%E6%95%88"><span class="nav-number">7.1.</span> <span class="nav-text">端口通了，不等于 Peer Relay 生效</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5%E5%BE%88%E5%BF%AB%EF%BC%8C%E4%B8%8D%E7%AD%89%E4%BA%8E%E7%9C%9F%E5%AE%9E%E8%B5%84%E4%BA%A7%E4%BC%A0%E8%BE%93%E5%BE%88%E7%A8%B3"><span class="nav-number">7.2.</span> <span class="nav-text">健康检查很快，不等于真实资产传输很稳</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#BBR-fq-%E8%A6%81%E4%B8%8D%E8%A6%81%E5%BC%80"><span class="nav-number">8.</span> <span class="nav-text">BBR + fq 要不要开</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A6%81%E4%B8%8D%E8%A6%81%E5%88%A0%E6%8E%89%E8%87%AA%E5%BB%BA-DERP"><span class="nav-number">9.</span> <span class="nav-text">要不要删掉自建 DERP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A6%82%E6%9E%9C%E4%B9%8B%E5%90%8E%E6%8D%A2-ECS"><span class="nav-number">10.</span> <span class="nav-text">如果之后换 ECS</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">11.</span> <span class="nav-text">参考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">游渊 YouYuan</p>
+  <div class="site-description" itemprop="description">personal blog</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://sephirxth.github.io/2026/08/13/%E4%BB%8E%E8%87%AA%E5%BB%BADERP%E5%88%B0Peer-Relay%EF%BC%9A%E7%94%A8%E9%98%BF%E9%87%8C%E4%BA%91ECS%E7%A8%B3%E5%AE%9A%E8%AE%BF%E9%97%AE%E5%86%85%E7%BD%91%E6%9C%8D%E5%8A%A1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="游渊 YouYuan">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Intellectual Lust">
+      <meta itemprop="description" content="personal blog">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="从自建DERP到Peer Relay：用阿里云ECS稳定访问内网服务 | Intellectual Lust">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从自建DERP到Peer Relay：用阿里云ECS稳定访问内网服务
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+      
+
+      <time title="创建时间：2026-08-13 18:30:00 / 修改时间：17:19:30" itemprop="dateCreated datePublished" datetime="2026-08-13T18:30:00+08:00">2026-08-13</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>我认为 Peer Relay 解决的不是“能不能连上”，是“已经能连上，但中继链路还不够稳定”。</p>
+<p>2024 年我在阿里云 ECS 上搭过一套自建 Tailscale DERP，当时是为了在外网访问 NAS。现在的需求变了：我需要在另一台电脑上访问家里 WSL 中的 GAG（Game Assets Generator）服务，传输图片、音频和模型资产。原来的 DERP 可以用，但延迟会从 45–53 ms 突然跳到 260 ms、287 ms，甚至 773 ms。</p>
+<p>带宽不是完全不够。是抖。</p>
+<span id="more"></span>
+
+<h2 id="先说结果"><a href="#先说结果" class="headerlink" title="先说结果"></a>先说结果</h2><p>我没有删除原来的自建 DERP，而是在同一台阿里云 ECS 上增加了 Tailscale Peer Relay：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">直连</span><br><span class="line">  ↓ 失败</span><br><span class="line">Peer Relay（UDP 40000）</span><br><span class="line">  ↓ 不可用</span><br><span class="line">自建 DERP（TCP 33445）</span><br></pre></td></tr></table></figure>
+
+<p>切换后，连续 10 次 <code>tailscale ping</code> 全部走 Peer Relay，延迟稳定在 38–48 ms；ECS 服务端能看到 2 个活跃 session。实际下载一个 4.81 MB 的 GAG 资产，三次用时 1.42–1.74 秒，大约 22–27 Mbps。</p>
+<p><strong>Peer Relay 不是新的 DERP 配置项，它是另一条 UDP 数据路径。</strong></p>
+<h2 id="Peer-Relay-和-DERP-到底是什么关系"><a href="#Peer-Relay-和-DERP-到底是什么关系" class="headerlink" title="Peer Relay 和 DERP 到底是什么关系"></a>Peer Relay 和 DERP 到底是什么关系</h2><p>Tailscale 官方现在把连接分成三类：直连、Peer Relay 中继和 DERP 中继。三种路径的业务数据都使用 WireGuard 端到端加密，差别主要是性能，不是“用了自建中继就变成明文”。</p>
+<p>DERP 通过 HTTPS&#x2F;TCP 提供连接协商和最终兜底，穿透性很强，但大文件传输和交互性服务可能受 TCP 队头阻塞、线路抖动等问题影响。Peer Relay 是同一个 tailnet 内的一台设备用 UDP 替其他节点转发已加密流量，通常更适合高吞吐、低抖动的场景。</p>
+<p>但这里有一个容易说错的细节：<strong>Tailscale 建立连接时仍会用 DERP 交换连接信息，然后尝试升级为直连或 Peer Relay。</strong> Peer Relay 的数据面不经过 DERP，但 DERP 仍有协商和兜底价值。</p>
+<p>所以我的选择不是“用 Peer Relay 替换 DERP”，是两条路径并存。</p>
+<h2 id="我的部署结构"><a href="#我的部署结构" class="headerlink" title="我的部署结构"></a>我的部署结构</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">外部笔记本</span><br><span class="line">    │</span><br><span class="line">    │ Tailscale / WireGuard</span><br><span class="line">    ▼</span><br><span class="line">阿里云 ECS</span><br><span class="line">    ├─ Peer Relay: UDP 40000</span><br><span class="line">    └─ Custom DERP: TCP 33445 + STUN UDP 3478</span><br><span class="line">    │</span><br><span class="line">    ▼</span><br><span class="line">家中 WSL</span><br><span class="line">    └─ GAG HTTPS / MCP 服务</span><br></pre></td></tr></table></figure>
+
+<p>ECS 入站只保留三个与 Tailscale 中继相关的端口：</p>
+<ol>
+<li><code>40000/UDP</code>：Peer Relay。</li>
+<li><code>33445/TCP</code>：自建 DERP。</li>
+<li><code>3478/UDP</code>：自建 DERP 的 STUN。</li>
+</ol>
+<p>SSH 通过 Tailscale SSH 进入，不需要向公网开放 <code>22/TCP</code>。80、443 也不是这套结构的必需入站端口。</p>
+<h2 id="在-ECS-上启动-Peer-Relay"><a href="#在-ECS-上启动-Peer-Relay" class="headerlink" title="在 ECS 上启动 Peer Relay"></a>在 ECS 上启动 Peer Relay</h2><p>Peer Relay 内置在 <code>tailscaled</code> 里，不需要安装另一个 relay daemon。服务端和使用 Peer Relay 的节点都需要 Tailscale 1.86 或更高版本。</p>
+<p>先安装 Tailscale，加入自己的 tailnet：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">curl -fsSL https://tailscale.com/install.sh | sh</span><br><span class="line">sudo tailscale up</span><br><span class="line">sudo systemctl <span class="built_in">enable</span> --now tailscaled</span><br></pre></td></tr></table></figure>
+
+<p>再把 ECS 设为 Peer Relay：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo tailscale <span class="built_in">set</span> \</span><br><span class="line">  --relay-server-port=40000 \</span><br><span class="line">  --relay-server-static-endpoints=<span class="string">&quot;&lt;ECS_PUBLIC_IP&gt;:40000&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>我的 ECS 有固定公网 IPv4，所以显式声明 static endpoint。阿里云安全组同时需要允许：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Protocol: UDP</span><br><span class="line">Port: 40000/40000</span><br><span class="line">Source: 0.0.0.0/0</span><br><span class="line">Direction: Inbound</span><br></pre></td></tr></table></figure>
+
+<p><code>0.0.0.0/0</code> 看上去很宽，但 Peer Relay 不是一个任意公网用户都能调用的通用 UDP 代理。它只为同一 tailnet 且获得 grant 授权的节点分配中继绑定，转发的也是端到端加密数据。</p>
+<h2 id="Access-Controls-里的-grant-才是真正的开关"><a href="#Access-Controls-里的-grant-才是真正的开关" class="headerlink" title="Access Controls 里的 grant 才是真正的开关"></a>Access Controls 里的 grant 才是真正的开关</h2><p>我一开始已经在 ECS 上看到 UDP 40000 监听，从外部发 UDP 数据包，ECS 也确实抓到了。但客户端仍然走 <code>DERP(MyDerps)</code>。</p>
+<p>这是因为安全组只解决“包能不能到 ECS”，grant 才决定“这个节点有没有资格使用 Peer Relay”。</p>
+<p>在 Tailscale Admin Console 的 Access Controls 中，可以在旧的 <code>ACLs</code> 之外新增一个顶层 <code>grants</code> 字段：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">&quot;grants&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">  <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;src&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;&lt;GAG_WSL_TAILSCALE_IP&gt;&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;&lt;ECS_TAILSCALE_IP&gt;&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;app&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;tailscale.com/cap/relay&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">]</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">]</span></span><br></pre></td></tr></table></figure>
+
+<p>这里最反直觉的是 <code>src</code>。</p>
+<p><strong><code>src</code> 不是“谁发起了访问”，是“哪些稳定资源允许别人通过这个 Peer Relay 访问”。</strong></p>
+<p>在我的场景里，<code>src</code> 是家中运行 GAG 的 WSL，<code>dst</code> 是运行 Peer Relay 的 ECS。外部笔记本不需要填进 <code>src</code>，除非我还需要从其他设备反向访问这台笔记本。</p>
+<p>我最后使用了 Tailscale IP，因为当时的策略编辑器没有接受我直接填入的 MagicDNS 短名。如果要增强可读性，可以用 policy 中的 <code>Hosts</code> 为 IP 定义显式别名。</p>
+<p>不建议为了省事写：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">&quot;src&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;*&quot;</span><span class="punctuation">]</span></span><br></pre></td></tr></table></figure>
+
+<p>官方文档也明确警告过宽的 <code>src</code> 可能让不必要的设备尝试使用 Peer Relay，反而增加绕路和流量。我只把 NAS、WSL、家庭服务器这类“稳定位置且需要被访问”的设备放进去。</p>
+<h2 id="怎么确认真的走了-Peer-Relay"><a href="#怎么确认真的走了-Peer-Relay" class="headerlink" title="怎么确认真的走了 Peer Relay"></a>怎么确认真的走了 Peer Relay</h2><p>不能只看端口有没有监听。我现在用三层验收。</p>
+<h3 id="1-客户端是否收到-Relay-候选"><a href="#1-客户端是否收到-Relay-候选" class="headerlink" title="1. 客户端是否收到 Relay 候选"></a>1. 客户端是否收到 Relay 候选</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tailscale debug peer-relay-servers</span><br></pre></td></tr></table></figure>
+
+<p>未授权时我看到的是：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">[</span><span class="punctuation">]</span></span><br></pre></td></tr></table></figure>
+
+<p>grant 保存生效后，列表中出现 ECS 的 Tailscale IP。</p>
+<h3 id="2-实际路径是否从-DERP-切换"><a href="#2-实际路径是否从-DERP-切换" class="headerlink" title="2. 实际路径是否从 DERP 切换"></a>2. 实际路径是否从 DERP 切换</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tailscale ping --c 10 &lt;PROTECTED_DEVICE&gt;</span><br></pre></td></tr></table></figure>
+
+<p>成功时的关键输出是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pong from &lt;device&gt; via peer-relay(&lt;ECS_PUBLIC_IP&gt;:40000:vni:1) in 41ms</span><br></pre></td></tr></table></figure>
+
+<p>如果显示：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">via DERP(&lt;region&gt;)</span><br></pre></td></tr></table></figure>
+
+<p>说明还在走 DERP。<code>direct connection not established</code> 不代表 Peer Relay 失败，它只表示没能升级成直连；只要前面显示 <code>peer-relay(...)</code>，Peer Relay 就已经承载这条连接。</p>
+<h3 id="3-ECS-是否真的在转发"><a href="#3-ECS-是否真的在转发" class="headerlink" title="3. ECS 是否真的在转发"></a>3. ECS 是否真的在转发</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo tailscale debug peer-relay-sessions</span><br></pre></td></tr></table></figure>
+
+<p>我的验收结果是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Server port: 40000</span><br><span class="line">Sessions count: 2</span><br></pre></td></tr></table></figure>
+
+<p>这三层分别回答三个问题：控制面是否授权，客户端是否选中，服务端是否转发。三个都对，才算真的部署完成。</p>
+<h2 id="这次遇到的两个假象"><a href="#这次遇到的两个假象" class="headerlink" title="这次遇到的两个假象"></a>这次遇到的两个假象</h2><h3 id="端口通了，不等于-Peer-Relay-生效"><a href="#端口通了，不等于-Peer-Relay-生效" class="headerlink" title="端口通了，不等于 Peer Relay 生效"></a>端口通了，不等于 Peer Relay 生效</h3><p>我曾经在 ECS 上用 <code>tcpdump</code> 抓到外部主机发到 UDP 40000 的数据包，但 <code>peer-relay-servers</code> 仍然是空数组，服务端 session 也是 0。原因不在阿里云安全组，在 Access Controls 还没有 grant。</p>
+<h3 id="健康检查很快，不等于真实资产传输很稳"><a href="#健康检查很快，不等于真实资产传输很稳" class="headerlink" title="健康检查很快，不等于真实资产传输很稳"></a>健康检查很快，不等于真实资产传输很稳</h3><p>GAG 的 <code>/health</code> 只有很小的响应，它可以证明服务存活，不能代表几 MB 的图片或模型传输不抖。所以我另外用带签名的真实资产 URL 做了三次下载测试。</p>
+<p>可观测性不是一个 <code>ping</code>。是控制面、路径、服务端 session 和业务流量四层证据。</p>
+<h2 id="BBR-fq-要不要开"><a href="#BBR-fq-要不要开" class="headerlink" title="BBR + fq 要不要开"></a>BBR + fq 要不要开</h2><p>我最后在 ECS 上启用了 BBR + fq：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">sudo modprobe tcp_bbr</span><br><span class="line"></span><br><span class="line">sudo <span class="built_in">tee</span> /etc/sysctl.d/99-bbr.conf &gt;/dev/null &lt;&lt;<span class="string">&#x27;EOF&#x27;</span></span><br><span class="line">net.core.default_qdisc = fq</span><br><span class="line">net.ipv4.tcp_congestion_control = bbr</span><br><span class="line">EOF</span><br><span class="line"></span><br><span class="line">sudo sysctl -p /etc/sysctl.d/99-bbr.conf</span><br></pre></td></tr></table></figure>
+
+<p>但要说清楚：BBR 是 TCP 拥塞控制，它主要影响原来的 TCP DERP，不是 Peer Relay 生效的必要条件。Peer Relay 走 UDP 40000，真正决定它能否工作的是 Tailscale 版本、UDP 可达性和 grant。</p>
+<h2 id="要不要删掉自建-DERP"><a href="#要不要删掉自建-DERP" class="headerlink" title="要不要删掉自建 DERP"></a>要不要删掉自建 DERP</h2><p>我的结论是：暂时不删。</p>
+<p>Peer Relay 的数据传输不依赖自建 DERP，但酒店、校园网、公司网可能阻断陌生 UDP 端口，而 HTTPS&#x2F;TCP 形式的 DERP 穿透性更强。我的 tailnet policy 还设置了 <code>OmitDefaultRegions: true</code>，如果再关闭自建 DERP，Peer Relay 不可用时就失去了最后兜底。</p>
+<p>所以现在这台 ECS 上有两个职责：</p>
+<ol>
+<li><code>tailscaled</code> 提供 UDP Peer Relay，承担日常高性能中继。</li>
+<li><code>derper</code> 提供 TCP DERP，承担最终兜底。</li>
+</ol>
+<p>这不是重复建设，是两种不同失败条件的保险。</p>
+<h2 id="如果之后换-ECS"><a href="#如果之后换-ECS" class="headerlink" title="如果之后换 ECS"></a>如果之后换 ECS</h2><p>我把部署动作收进了一个独立的网络配置目录，里面包含：</p>
+<ol>
+<li>Peer Relay 部署脚本。</li>
+<li>验收脚本。</li>
+<li>Access Controls grant 模板。</li>
+<li>BBR + fq 持久化配置。</li>
+<li>迁移和回滚说明。</li>
+</ol>
+<p>新 ECS 的迁移顺序应该是：新旧节点并行，先验证新 Peer Relay，再迁移 DERP，最后释放旧机。不要把“换服务器”变成一次不可回滚的网络切换。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://tailscale.com/docs/features/peer-relay">Tailscale Peer Relays</a></li>
+<li><a target="_blank" rel="noopener" href="https://tailscale.com/docs/reference/connection-types">Tailscale connection types</a></li>
+<li><a target="_blank" rel="noopener" href="https://tailscale.com/docs/reference/derp-servers">DERP servers</a></li>
+<li><a href="/2024/05/16/%E5%8A%A0%E9%80%9F%E5%A4%96%E9%83%A8%E8%AE%BF%E9%97%AENAS%EF%BC%9A%E6%97%A0%E9%9C%80%E5%9F%9F%E5%90%8D%E5%BB%BA%E7%AB%8Btailscale%20derp%E4%B8%AD%E7%BB%A7%E6%9C%8D%E5%8A%A1/">2024 年我搭建自建 DERP 的记录</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>请我一杯咖啡吧！</div>
+  <button>
+    赞赏
+  </button>
+  <div class="post-reward">
+
+  </div>
+</div>
+
+          <div class="followme">
+  <span>欢迎关注我的其它发布渠道</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/tailscale/" rel="tag"># tailscale</a>
+              <a href="/tags/peer-relay/" rel="tag"># peer relay</a>
+              <a href="/tags/%E9%98%BF%E9%87%8C%E4%BA%91ECS/" rel="tag"># 阿里云ECS</a>
+              <a href="/tags/%E7%BD%91%E7%BB%9C/" rel="tag"># 网络</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+            </div>
+            <div class="post-nav-item">
+                <a href="/2024/07/15/%E4%B8%8B%E8%BD%BDwaymo%E6%95%B0%E6%8D%AE%E9%97%AE%E9%A2%98%E5%8F%8A%E8%A7%A3%E5%86%B3/" rel="next" title="下载Waymo open dataset问题及解决">
+                  下载Waymo open dataset问题及解决 <i class="fa fa-angle-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments gitalk-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="copyright">
+    &copy; 2018 – 
+    <span itemprop="copyrightYear">2026</span>
+    <span class="with-love">
+      <i class="fa-solid fa-smog"></i>
+    </span>
+    <span class="author" itemprop="copyrightHolder">游渊 YouYuan</span>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+  <div class="sidebar-dimmer"></div>
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/sidebar.js"></script><script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hexo-generator-searchdb/1.4.1/search.js" integrity="sha256-1kfA5uHPf65M5cphT2dvymhkuyHPQp5A53EGZOnOLmc=" crossorigin="anonymous"></script>
+<script src="/js/third-party/search/local-search.js"></script>
+
+
+
+
+
+
+
+  
+
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/gitalk/1.8.0/gitalk.css" integrity="sha256-AJnUHL7dBv6PGaeyPQJcgQPDjt/Hn/PvYZde1iqfp8U=" crossorigin="anonymous">
+
+<script class="next-config" data-name="gitalk" type="application/json">{"enable":true,"github_id":"sephirxth","repo":"gitalk","client_id":"a31fd9a3e0caa093c28f","client_secret":"bc709597f1447998e8a9b3107a8234259d50794a","admin_user":"sephirxth","distraction_free_mode":true,"proxy":"https://cors-anywhere.azm.workers.dev/https://github.com/login/oauth/access_token","language":null,"owner":"sephirxth","adminUser":"sephirxth","labels":["gitalk"],"perPage":15,"pagerDirection":"last","createIssueManually":false,"distractionFreeMode":true,"js":{"url":"https://cdnjs.cloudflare.com/ajax/libs/gitalk/1.8.0/gitalk.min.js","integrity":"sha256-MVK9MGD/XJaGyIghSVrONSnoXoGh3IFxLw0zfvzpxR4="},"path_md5":"f937e5d8dccaa3318d5fc6251d770a39"}</script>
+<script src="/js/third-party/comments/gitalk.js"></script>
+
+</body>
+</html>
