@@ -1,0 +1,182 @@
+/* 游渊 YouYuan — hand-written static site. One stylesheet for every page. */
+
+@font-face {
+  font-family: "Crimson Pro";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../fonts/CrimsonPro-normal-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Crimson Pro";
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../fonts/CrimsonPro-italic-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Unica One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/UnicaOne-normal-latin.woff2") format("woff2");
+}
+
+:root {
+  --ink: #111;
+  --soft: #555;
+  --faint: #8d8d8d;
+  --label: #b3b3b3;
+  --hair: #b9b9b9;
+  --paper: #fff;
+  --mark: #f4f0d2;
+  --code: #f5f4ef;
+  --serif: "Crimson Pro", "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --kai: "Crimson Pro", "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", "KaiTi_GB2312", "Noto Serif SC", serif;
+  --caps: "Unica One", "Oswald", "DIN Condensed", "Arial Narrow", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.75;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { background: var(--mark); }
+img { max-width: 100%; }
+.px { image-rendering: pixelated; image-rendering: crisp-edges; display: block; height: auto; }
+
+.wrap { max-width: 1008px; margin: 0 auto; padding: 44px 24px 72px; }
+
+/* ---------- top of the page ---------- */
+.top { display: flex; gap: 32px; align-items: flex-start; justify-content: space-between; }
+.top .say { max-width: 520px; }
+.mark { display: inline-block; margin-bottom: 26px; }
+.mark:hover { background: none; }
+.say p { margin: 0 0 12px; font-size: 21px; line-height: 1.62; }
+.who { text-align: right; min-width: 250px; padding-top: 26px; }
+.who .name { font-family: var(--caps); font-size: 28px; line-height: 1; letter-spacing: .06em; text-decoration: none; display: block; }
+.who .name:hover { background: none; }
+.who .cn { font-family: var(--kai); font-size: 17px; letter-spacing: .3em; margin: 8px -.3em 0 0; }
+.links { font-family: var(--ui); font-size: 12px; line-height: 1; margin: 14px 0 0; }
+.links a { margin-left: 10px; }
+.invite { font-family: var(--ui); font-size: 12px; line-height: 1.7; color: var(--soft); margin: 34px 0 0 auto; max-width: 250px; }
+
+/* ---------- sections with a label in the gutter ---------- */
+.band { display: flex; margin-top: 76px; }
+.gut { flex: 0 0 56px; }
+.gut span {
+  writing-mode: vertical-rl;
+  font-family: var(--caps);
+  font-size: 23px;
+  line-height: 1;
+  letter-spacing: .09em;
+  color: var(--label);
+  white-space: nowrap;
+}
+.body { flex: 1; min-width: 0; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 400px; column-gap: 40px; }
+.row + .row { margin-top: 34px; }
+.items { max-width: 468px; }
+.item + .item { margin-top: 30px; }
+.item h3 {
+  margin: 0 0 6px;
+  font-family: var(--kai);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 1.35;
+  display: flex; align-items: center; gap: 24px;
+}
+.item h3 a { text-decoration: none; }
+.item h3 a:hover { text-decoration: underline; }
+.lead-out h3::after { content: ""; flex: 1; border-top: 1px solid var(--hair); margin-right: -40px; }
+.item p { margin: 0; font-size: 15.5px; line-height: 1.72; }
+.item .by { font-family: var(--kai); font-style: italic; font-size: 14.5px; color: var(--soft); margin-top: 3px; }
+
+.plate { border-left: 1px solid var(--hair); border-bottom: 1px solid var(--hair); padding: 0 0 16px 16px; margin: 14px 0 0; align-self: start; }
+.plate img { width: 100%; }
+.plate .cap { font-family: var(--caps); font-size: 16px; letter-spacing: .07em; line-height: 1.3; margin: 12px 0 4px; }
+.plate .note { font-family: var(--ui); font-size: 12px; line-height: 1.6; color: var(--soft); margin: 0; }
+
+/* ---------- list of writing ---------- */
+.log { list-style: none; margin: 0; padding: 0; max-width: 620px; }
+.log li { display: flex; gap: 18px; align-items: baseline; padding: 5px 0; }
+.log time { flex: 0 0 82px; font-family: var(--ui); font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.log a { font-size: 17px; line-height: 1.5; text-decoration: none; }
+.log a:hover { text-decoration: underline; }
+.more { font-family: var(--ui); font-size: 12px; margin-top: 16px; }
+
+/* ---------- foot ---------- */
+.foot { margin-top: 96px; font-family: var(--ui); font-size: 12px; line-height: 1.8; color: var(--faint); }
+.foot::before { content: ""; display: block; height: 4px; margin-bottom: 18px; background: url("../img/rule-dither.png") 0 0 / 16px 4px repeat-x; image-rendering: pixelated; opacity: .32; }
+.foot a { color: var(--soft); }
+
+/* ---------- article pages ---------- */
+.head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
+.head .mark { margin-bottom: 0; }
+.head .who { padding-top: 0; min-width: 0; }
+.head .who .name { font-size: 22px; }
+.post { max-width: 664px; margin: 72px 0 0 56px; }
+.post > header h1 { font-family: var(--serif); font-weight: 500; font-size: 33px; line-height: 1.32; margin: 0 0 10px; }
+.post > header .meta { font-family: var(--ui); font-size: 12px; color: var(--faint); margin: 0 0 40px; }
+.post h2 { font-family: var(--kai); font-style: italic; font-weight: 400; font-size: 25px; line-height: 1.4; margin: 46px 0 10px; }
+.post h3 { font-family: var(--serif); font-weight: 600; font-size: 18.5px; margin: 32px 0 6px; }
+.post h4 { font-family: var(--serif); font-weight: 600; font-size: 17px; margin: 24px 0 4px; }
+.post p { margin: 0 0 16px; }
+.post ul, .post ol { margin: 0 0 16px; padding-left: 1.4em; }
+.post li { margin: 3px 0; }
+.post li > ul, .post li > ol { margin: 3px 0; }
+.post blockquote { margin: 0 0 16px; padding: 2px 0 2px 18px; border-left: 1px solid var(--hair); color: var(--soft); }
+.post code { font-family: var(--mono); font-size: .82em; background: var(--code); padding: 1px 4px; }
+.post pre { margin: 0 0 18px; padding: 12px 14px; background: var(--code); border-left: 1px solid var(--hair); overflow-x: auto; font-size: 13.5px; line-height: 1.6; }
+.post pre code { background: none; padding: 0; font-size: inherit; }
+.post img { display: block; margin: 8px 0 18px; border: 1px solid #e3e3e3; height: auto; }
+.post table { border-collapse: collapse; margin: 0 0 18px; font-size: 15px; display: block; overflow-x: auto; }
+.post th, .post td { border-bottom: 1px solid #ddd; padding: 5px 12px 5px 0; text-align: left; vertical-align: top; }
+.post th { font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--soft); }
+.post hr { border: 0; border-top: 1px solid var(--hair); margin: 34px 0; }
+.post .tags { font-family: var(--ui); font-size: 12px; color: var(--faint); margin-top: 44px; }
+.pager { max-width: 664px; margin: 40px 0 0 56px; font-family: var(--ui); font-size: 12px; display: flex; justify-content: space-between; gap: 24px; }
+.page-title { font-family: var(--caps); font-size: 23px; letter-spacing: .09em; color: var(--label); margin: 72px 0 26px 56px; line-height: 1; }
+.plain { margin-left: 56px; }
+
+/* ---------- small screens ---------- */
+@media (max-width: 860px) {
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .plate { margin-top: 22px; max-width: 416px; }
+  .lead-out h3::after { margin-right: 0; }
+  .items { max-width: 560px; }
+}
+@media (max-width: 640px) {
+  body { font-size: 16.5px; }
+  .wrap { padding: 28px 18px 56px; }
+  .top { flex-direction: column-reverse; gap: 18px; }
+  .who { text-align: left; padding-top: 0; min-width: 0; }
+  .links a { margin: 0 10px 0 0; }
+  .invite { margin: 16px 0 0; max-width: none; }
+  .mark { margin-bottom: 18px; }
+  .say p { font-size: 19px; }
+  .band { display: block; margin-top: 52px; }
+  .gut { margin-bottom: 14px; }
+  .gut span { writing-mode: horizontal-tb; font-size: 20px; }
+  .post, .pager, .plain { margin-left: 0; }
+  .post { margin-top: 44px; }
+  .post > header h1 { font-size: 27px; }
+  .page-title { margin: 48px 0 20px; }
+  .log time { flex-basis: 76px; }
+}
+@media print {
+  .wrap { padding: 0; }
+  a:hover { background: none; }
+}
