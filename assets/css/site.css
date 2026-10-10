@@ -127,6 +127,7 @@ img { max-width: 100%; }
 .head .mark { margin-bottom: 0; }
 .head .who { padding-top: 0; min-width: 0; }
 .head .who .name { font-size: 22px; }
+.head .who .links { margin: 8px 0 0; }
 .post { max-width: 664px; margin: 72px 0 0 56px; }
 .post > header h1 { font-family: var(--serif); font-weight: 500; font-size: 33px; line-height: 1.32; margin: 0 0 10px; }
 .post > header .meta { font-family: var(--ui); font-size: 12px; color: var(--faint); margin: 0 0 40px; }
@@ -163,6 +164,45 @@ html:lang(en) .item :lang(zh) { font-size: .88em; }
 .say p { text-wrap: balance; }
 .item p, .plate .note { text-wrap: pretty; }
 
+/* ---------- project pages ---------- */
+.proj { margin: 64px 0 0 56px; max-width: 897px; }
+.proj > * { max-width: 664px; }
+.proj > header { margin-bottom: 30px; }
+.proj > header h1 { font-family: var(--kai); font-style: italic; font-weight: 400; font-size: 40px; line-height: 1.25; margin: 0 0 12px; }
+.proj > header .lede { font-size: 21px; line-height: 1.62; margin: 0 0 24px; text-wrap: pretty; }
+.facts { display: grid; grid-template-columns: max-content 1fr; column-gap: 24px; row-gap: 3px; margin: 0; font-family: var(--ui); font-size: 12.5px; line-height: 1.75; }
+.facts dt { font-family: var(--caps); font-size: 14px; letter-spacing: .08em; color: var(--label); }
+.facts dd { margin: 0; color: var(--soft); }
+.proj h2 { font-family: var(--kai); font-style: italic; font-weight: 400; font-size: 25px; line-height: 1.4; margin: 52px 0 10px; }
+.proj h3 { font-family: var(--serif); font-weight: 600; font-size: 18.5px; margin: 30px 0 6px; }
+.proj p { margin: 0 0 16px; text-wrap: pretty; }
+.proj ul, .proj ol { margin: 0 0 16px; padding-left: 1.4em; }
+.proj li { margin: 4px 0; }
+.proj code { font-family: var(--mono); font-size: .82em; background: var(--code); padding: 1px 4px; }
+.proj > figure.fig, .proj > figure.shot { max-width: none; margin: 30px 0 36px; padding: 0 0 16px 16px; border-left: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.fig .canvas { overflow-x: auto; }
+.fig svg { display: block; }
+.fig .cap, .shot .cap { font-family: var(--caps); font-size: 16px; letter-spacing: .07em; line-height: 1.3; margin: 12px 0 4px; }
+.fig .note, .shot .note { font-family: var(--ui); font-size: 12px; line-height: 1.6; color: var(--soft); margin: 0; max-width: 664px; }
+.shot img { width: 100%; max-width: 880px; }
+.fig text { font-family: var(--ui); font-size: 13px; fill: var(--ink); }
+.fig .t-node { font-family: var(--kai); font-size: 17px; }
+.fig .t-small { font-size: 12px; }
+.fig .t-soft { fill: var(--soft); }
+.fig .t-faint { fill: var(--faint); }
+.fig .t-caps { font-family: var(--caps); font-size: 14px; letter-spacing: .08em; }
+.fig .t-num { font-variant-numeric: tabular-nums; font-size: 11.5px; fill: var(--soft); }
+.fig .t-tiny { font-size: 12px; letter-spacing: .06em; }
+html:lang(en) .fig .t-node { font-family: var(--serif); font-style: italic; font-size: 18px; }
+html:lang(en) .proj { font-size: 18.5px; line-height: 1.62; }
+html:lang(en) .proj > header h1 { font-family: var(--serif); font-size: 42px; }
+html:lang(en) .proj > header .lede { font-size: 22px; line-height: 1.5; }
+html:lang(en) .proj h2 { font-family: var(--serif); font-size: 27px; }
+.item h3 a { text-decoration: none; }
+.item h3 a:hover { background: none; text-decoration: underline; text-decoration-thickness: 1px; }
+.item .go { font-family: var(--ui); font-size: 12px; margin-top: 4px; }
+.item .go a { color: var(--soft); }
+
 /* ---------- small screens ---------- */
 @media (max-width: 860px) {
   .row { grid-template-columns: minmax(0, 1fr); }
@@ -182,7 +222,10 @@ html:lang(en) .item :lang(zh) { font-size: .88em; }
   .band { display: block; margin-top: 52px; }
   .gut { margin-bottom: 14px; }
   .gut span { writing-mode: horizontal-tb; font-size: 20px; }
-  .post, .pager, .plain { margin-left: 0; }
+  .post, .pager, .plain, .proj { margin-left: 0; }
+  .proj { margin-top: 40px; }
+  .proj > header h1 { font-size: 31px; }
+  .proj > header .lede { font-size: 19px; }
   .post { margin-top: 44px; }
   .post > header h1 { font-size: 27px; }
   .page-title { margin: 48px 0 20px; }

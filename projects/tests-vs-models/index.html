@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>通过测试，不等于建对了 · 游渊 YouYuan</title>
+<meta name="description" content="让大模型把一段文字描述的调度问题建成优化模型，再检查它到底建对了没有。通过了测试的程序，换一批数字可能就错了。">
+<link rel="alternate" hreflang="zh-CN" href="https://sephirxth.github.io/projects/tests-vs-models/">
+<link rel="alternate" hreflang="en" href="https://sephirxth.github.io/en/projects/tests-vs-models/">
+<link rel="alternate" hreflang="x-default" href="https://sephirxth.github.io/projects/tests-vs-models/">
+<link rel="icon" href="/images/favicon.png">
+<link rel="alternate" type="application/atom+xml" title="游渊 YouYuan" href="/feed.xml">
+<link rel="stylesheet" href="/assets/css/site.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <a class="mark" href="/"><img class="px" src="/assets/img/mark-rule90.png" width="62" height="32" alt="回到首页"></a>
+    <div class="who"><a class="name" href="/">YOU YUAN</a><p class="links"><a href="/en/projects/tests-vs-models/" lang="en" hreflang="en">English</a></p></div>
+  </div>
+
+  <article class="proj">
+    <header>
+      <h1>通过测试，不等于建对了</h1>
+      <p class="lede">让大模型把一段文字描述的调度问题建成优化模型，再检查它到底建对了没有。通过了测试的程序，换一批数字可能就错了。</p>
+      <dl class="facts">
+        <dt>TYPE</dt><dd>大模型自动建模的评测</dd>
+        <dt>STATUS</dt><dd>论文工作稿</dd>
+        <dt>WHEN</dt><dd>2026</dd>
+      </dl>
+    </header>
+
+    <h2>问题</h2>
+    <p>调度问题（哪辆车先走，哪台设备干哪个活）一般要请懂运筹的人把它写成优化模型，变量是什么，约束有哪些，目标是什么，再交给求解器去算。现在可以让大模型读一段文字描述，直接把模型写出来。</p>
+    <p>麻烦在怎么知道它写对了。通常的办法是拿一组算例去测，答案和标准答案对上就算通过。可是对上只说明在这一组数上对了。比如模型漏了一条约束，这组数里那条约束正好不起作用，答案照样对，换一批数就错了（图 1）。</p>
+
+    <figure class="fig"><div class="canvas">
+<!-- fig:tests-vs-model:zh -->
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="316" viewBox="0 0 880 316" role="img"><title>通过测试和建对模型不是一回事</title><defs><pattern id="d50" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#1b1b1b"/><rect x="2" y="2" width="2" height="2" fill="#1b1b1b"/></pattern><pattern id="d25" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#1b1b1b"/></pattern><pattern id="d12" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#1b1b1b"/><rect x="4" y="4" width="2" height="2" fill="#1b1b1b"/></pattern><pattern id="d6" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#1b1b1b"/></pattern><pattern id="d75" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#1b1b1b"/><rect x="2" width="2" height="2" fill="#efeee9"/></pattern></defs><rect x="0" y="0" width="880" height="316" fill="#efeee9" shape-rendering="crispEdges"/><rect x="40.5" y="36.5" width="189" height="63" fill="#fff" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><text x="135" y="66" class="t-node" text-anchor="middle">一段文字</text><text x="135" y="85" class="t-small t-soft" text-anchor="middle">描述一个调度问题</text><line x1="230" y1="68.5" x2="270" y2="68.5" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><polygon points="270,68.5 263,64.5 263,72.5" fill="#1b1b1b"/><rect x="274" y="40" width="130" height="64" fill="url(#d25)" shape-rendering="crispEdges"/><rect x="270.5" y="36.5" width="129" height="63" fill="#fff" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><text x="335" y="66" class="t-node" text-anchor="middle">大模型</text><text x="335" y="85" class="t-small t-soft" text-anchor="middle">读题，建模</text><line x1="400" y1="68.5" x2="440" y2="68.5" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><polygon points="440,68.5 433,64.5 433,72.5" fill="#1b1b1b"/><rect x="440.5" y="36.5" width="215" height="63" fill="#fff" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><text x="548" y="66" class="t-node" text-anchor="middle">优化模型</text><text x="548" y="85" class="t-small t-soft" text-anchor="middle">变量、约束、目标</text><line x1="548.5" y1="100" x2="548.5" y2="160" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><polygon points="548.5,160 544.5,153 552.5,153" fill="#1b1b1b"/><rect x="440.5" y="160.5" width="215" height="127" fill="#fff" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><text x="548" y="230" class="t-node" text-anchor="middle">求解</text><rect x="170.5" y="172.5" width="229" height="43" fill="#fff" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><text x="285" y="200" class="t-small" text-anchor="middle">测试里的那组数</text><rect x="170.5" y="244.5" width="229" height="43" fill="#fff" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><text x="285" y="272" class="t-small" text-anchor="middle">换一批数，题目不变</text><line x1="400" y1="194.5" x2="440" y2="194.5" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><polygon points="440,194.5 433,190.5 433,198.5" fill="#1b1b1b"/><line x1="400" y1="266.5" x2="440" y2="266.5" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><polygon points="440,266.5 433,262.5 433,270.5" fill="#1b1b1b"/><line x1="656" y1="194.5" x2="696" y2="194.5" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><polygon points="696,194.5 689,190.5 689,198.5" fill="#1b1b1b"/><line x1="656" y1="266.5" x2="696" y2="266.5" stroke="#1b1b1b" stroke-width="1" shape-rendering="crispEdges"/><polygon points="696,266.5 689,262.5 689,270.5" fill="#1b1b1b"/><path d="M708 195 L718 205 L736 183" fill="none" stroke="#1b1b1b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><path d="M710 256 L734 278" fill="none" stroke="#1b1b1b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><path d="M734 256 L710 278" fill="none" stroke="#1b1b1b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><text x="750" y="199" class="t-small">答案对上了</text><text x="750" y="271" class="t-small">答案错了</text></svg>
+<!-- /fig -->
+    </div><figcaption><p class="cap">FIG. 1 · 同一个模型，两批数</p><p class="note">示意图。</p></figcaption></figure>
+
+    <h2>做到哪了</h2>
+    <ul>
+      <li>这是一篇还在写的论文。怎么查、查出来多少，等发表了再放上来。</li>
+    </ul>
+  </article>
+
+  <nav class="pager">
+    <span><a href="/projects/lane-change/">← 换道里的涌现</a></span>
+    <span><a href="/">首页 →</a></span>
+  </nav>
+
+  <footer class="foot">
+    © 2018–2026 游渊 YouYuan。文章默认采用 <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh-hans">CC BY-NC-ND 4.0</a>。<a href="/about/">关于</a> · <a href="/archives/">文章</a> · <a href="/feed.xml">RSS</a><br>
+    这个站点没用生成器，每一页都是直接写的 HTML。图是程序画的 1-bit 像素画。
+  </footer>
+
+</div>
+</body>
+</html>
