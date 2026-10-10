@@ -8,6 +8,8 @@
 |---|---|
 | `index.html` | 首页：一句话介绍、GAMES / SYSTEMS / RESEARCH 三栏、文章列表 |
 | `about/index.html` | 关于 |
+| `en/index.html` | 英文首页，和中文首页一一对应 |
+| `en/about/index.html` | 英文“关于” |
 | `archives/index.html` | 全部文章，按年份 |
 | `YYYY/MM/DD/<标题>/index.html` | 一篇文章一个目录，沿用旧地址，不要改名 |
 | `feed.xml` | Atom 订阅，手写 |
@@ -27,6 +29,8 @@
 ## 改首页上的项目
 
 每个项目是一个 `<article class="item">`：标题、一段话、一行小字。带 `lead-out` 的那一项，标题后面的细线会连到右边的图。
+
+首页有中英两个版本。改了 index.html 里某个项目的文字，同时改 en/index.html 里对应的那一条；新加文章时，英文首页的 WRITING 列表也加一行（英文标题，链接仍指向中文文章）。
 
 ## 图
 

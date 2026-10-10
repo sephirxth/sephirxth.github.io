@@ -151,6 +151,18 @@ img { max-width: 100%; }
 .page-title { font-family: var(--caps); font-size: 23px; letter-spacing: .09em; color: var(--label); margin: 72px 0 26px 56px; line-height: 1; }
 .plain { margin-left: 56px; }
 
+/* ---------- language link on inner pages; English pages ---------- */
+.post > header .meta a { color: var(--soft); }
+.plain p { margin: 0 0 10px; }
+html:lang(en) .say p { font-size: 22px; line-height: 1.5; }
+html:lang(en) .item p { font-size: 17px; line-height: 1.55; }
+html:lang(en) .item .by { font-size: 15.5px; }
+html:lang(en) .log a { font-size: 18px; }
+html:lang(en) .post { font-size: 18.5px; line-height: 1.62; }
+html:lang(en) .item :lang(zh) { font-size: .88em; }
+.say p { text-wrap: balance; }
+.item p, .plate .note { text-wrap: pretty; }
+
 /* ---------- small screens ---------- */
 @media (max-width: 860px) {
   .row { grid-template-columns: minmax(0, 1fr); }
@@ -175,6 +187,7 @@ img { max-width: 100%; }
   .post > header h1 { font-size: 27px; }
   .page-title { margin: 48px 0 20px; }
   .log time { flex-basis: 76px; }
+  html:lang(en) .say p { font-size: 20px; }
 }
 @media print {
   .wrap { padding: 0; }
