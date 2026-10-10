@@ -24,14 +24,14 @@
   <article class="proj">
     <header>
       <h1>Flow and dynamic difficulty</h1>
-      <p class="lede">The game estimates whether the player is anxious, in flow, or bored, and adjusts the difficulty to keep them in flow longer. I made a demo you can play in the browser.</p>
+      <p class="lede">The game estimates whether the player is anxious, in flow, or bored, and adjusts the difficulty to keep them in flow longer. There is a demo you can play in the browser.</p>
       <dl class="facts">
         <dt>TYPE</dt><dd>Adaptive difficulty in a game, a side project</dd>
         <dt>STATUS</dt><dd>The demo is playable; no playtesting with players yet</dd>
         <dt>DEMO</dt><dd><a href="https://vampire-survivors-ai-dda.vercel.app/">vampire-survivors-ai-dda.vercel.app</a> (hosted on Vercel; the interface is in Chinese)</dd>
-        <dt>WHEN</dt><dd>2025 to now. This version of the demo was written in January 2026, in three days, 18 commits</dd>
-        <dt>BUILT WITH</dt><dd>TypeScript, React, Canvas, with a controller I wrote myself</dd>
-        <dt>WHO</dt><dd>Mostly written by me, with one collaborator</dd>
+        <dt>WHEN</dt><dd>2025 to now. This page describes the January 2026 version; the online demo is a later build, from May 2026</dd>
+        <dt>BUILT WITH</dt><dd>TypeScript, React, Canvas. The controller is hand-written, with no library behind it</dd>
+        <dt>WHO</dt><dd>Built together with one collaborator</dd>
       </dl>
     </header>
 
@@ -52,10 +52,10 @@
       <li>Encirclement. Within a fixed distance around the player, how many of 8 directions have an enemy in them, sorted into 4 bands. It counts directions, not enemies.</li>
       <li>Kill streak. How many kills since the last time the player got hit, sorted into 5 bands.</li>
     </ul>
-    <p>No camera, no heart rate, and it doesn't ask the player anything. So "anxious, flow, bored" are just the names of three states in the model. Whether they line up with what a player actually feels, I have not verified.</p>
+    <p>No camera, no heart rate, and it doesn't ask the player anything. So "anxious, flow, bored" are just the names of three states in the model. Whether they line up with what a player actually feels has not been verified.</p>
 
     <h2>How it reads state from the signals</h2>
-    <p>The controller holds three tables (fig. 2). They say: if the player is in a given state, how likely is each band of each signal. For example, when the player is anxious, the chance of critical health is 0.6; in flow it is only 0.05. These numbers are assumptions I filled in by hand. They were never fit to player data.</p>
+    <p>The controller holds three tables (fig. 2). They say: if the player is in a given state, how likely is each band of each signal. For example, when the player is anxious, the chance of critical health is 0.6; in flow it is only 0.05. These numbers are assumptions filled in by hand. They were never fit to player data.</p>
 
     <figure class="fig"><div class="canvas">
 <!-- fig:flow-likelihood:en -->
@@ -84,6 +84,7 @@
     </div><figcaption><p class="cap">FIG. 4 · Three parameters, seven actions</p><p class="note">The line is the range a parameter can take, the black block is its starting value, and each small step is how much one action moves it. Time is converted from updates running 60 times a second.</p></figcaption></figure>
 
     <h2>Where it stands</h2>
+    <p>What follows is about the January 2026 version. The online demo is a later build, from May; the controller has changed since, and this page has not caught up.</p>
     <ul>
       <li>The demo builds and plays. 8 enemy types, 5 weapons, 5 passives, 5 weapon evolution recipes.</li>
       <li>The three states were never calibrated. No subjective reports from players, and no other independent measurement.</li>
