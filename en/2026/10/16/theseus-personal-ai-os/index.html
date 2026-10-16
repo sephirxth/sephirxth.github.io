@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theseus: a personal AI OS spread across a few machines · You Yuan</title>
+<meta name="description" content="Theseus is an AI system I built for myself. This post covers how it treats a few machines and agents from a few vendors as one system, how far it has gotten, and what is still missing.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Theseus: a personal AI OS spread across a few machines">
+<meta property="og:description" content="Theseus is an AI system I built for myself. This post covers how it treats a few machines and agents from a few vendors as one system, how far it has gotten, and what is still missing.">
+<meta property="og:url" content="https://sephirxth.github.io/en/2026/10/16/theseus-personal-ai-os/">
+<meta property="og:image" content="https://sephirxth.github.io/assets/img/share-ship.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="zh-CN" href="https://sephirxth.github.io/2026/10/16/theseus-personal-ai-os/">
+<link rel="alternate" hreflang="en" href="https://sephirxth.github.io/en/2026/10/16/theseus-personal-ai-os/">
+<link rel="alternate" hreflang="x-default" href="https://sephirxth.github.io/2026/10/16/theseus-personal-ai-os/">
+<link rel="icon" href="/images/favicon.png">
+<link rel="alternate" type="application/atom+xml" title="游渊 YouYuan" href="/feed.xml">
+<link rel="stylesheet" href="/assets/css/site.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <a class="mark" href="/en/"><img class="px" src="/assets/img/mark-rule90.png" width="62" height="32" alt="Home"></a>
+    <div class="who"><a class="name" href="/en/">YOU YUAN</a><p class="links"><a href="/2026/10/16/theseus-personal-ai-os/" lang="zh-CN" hreflang="zh-CN">中文</a></p></div>
+  </div>
+
+  <article class="post">
+    <header>
+      <h1>Theseus: a personal AI OS spread across a few machines</h1>
+      <p class="meta"><time datetime="2026-10-16">2026-10-16</time></p>
+    </header>
+<p>Since March 2026 I have been building an AI collaboration system for myself, alone. It is called Theseus. Lately the way I use it feels more and more like using a computer, except this computer is spread across several machines, and the processes running on it are agents from Claude Code, Codex, Kimi, and Hermes. This post writes the idea down as it is, which parts are already running and which are still just ideas. I also hope it helps me find people building similar things.</p>
+<h2 id="What is scarce is attention">What is scarce is attention</h2>
+<p>A lot of my work now goes to agents, writing code, looking things up, running experiments, organizing documents, that kind of thing. Machines are not scarce, and neither are agents. What is scarce is my own attention (the first constraint in the Theseus vision document says exactly this, human attention is the scarcest resource in the system). So the way I want it to work is, I only say what needs to be done, and the system arranges which machine it runs on, what data to prepare, and how to hand the result back. Put simply, distributed computing, task dispatch, and data sync should be Theseus's own job.</p>
+<h2 id="Several machines as one">Several machines as one</h2>
+<p>The current division of labor follows the memory hierarchy of a computer. The cloud server acts as RAM, fast but small, and it might go away someday, so a task loads what it needs and unloads when it is done. The home computer (Windows running WSL, with an RTX 3080) is the hard drive. Everything meant to be kept lives there, and the steps that need a GPU run there too. My laptop and the NAS sync both ways with one drive on the home computer over Syncthing, and finished pieces meant for me go into that drive, so I can open them on any device.</p>
+<p>The machines reach each other over Tailscale (the detours along the way are in an earlier post, <a href="/2026/08/13/%E4%BB%8E%E8%87%AA%E5%BB%BADERP%E5%88%B0Peer-Relay%EF%BC%9A%E7%94%A8%E9%98%BF%E9%87%8C%E4%BA%91ECS%E7%A8%B3%E5%AE%9A%E8%AE%BF%E9%97%AE%E5%86%85%E7%BD%91%E6%9C%8D%E5%8A%A1/">From self-hosted DERP to Peer Relay</a>, in Chinese). Two rules are my own. Nothing unique may live only on the cloud server, and before anything there is unloaded, the home copy has to be checked complete. Bulk transfers only run from 1am to 7am (Beijing time), so they stay off the daytime bandwidth.</p>
+<p>Next I want to bring the idle devices in. The Synology NAS at home runs nothing but Syncthing right now. I am considering flashing it to Linux and handing it to an agent to manage remotely, and there are a few old phones and old computers I am also trying to find work for.</p>
+<h2 id="Agents from a few vendors as processes">Agents from a few vendors as processes</h2>
+<p>I run agents from several vendors at the same time, Claude Code, OpenAI's Codex, Kimi, and Hermes. They all read the same rules file (AGENTS.md), and each vendor's config entry is a symlink to that one file, so a rule change happens in one place. In daily use, one agent talks with me and does the design, and the time-consuming work (writing code, online research, long experiments) goes to other agents in the background. When a background job finishes it leaves a done marker, and the main agent checks the result after it sees the marker.</p>
+<p>Subscription quota counts as compute here too (in the vision, the part in charge of compute is called drive, and cost is its job as well). On October 15 one subscription was about to reset, so I had an agent spin up 13 sub-agents in one go to work through the backlog, and they burned through the whole five-hour allowance in about twenty minutes.</p>
+<h2 id="Memory and gear">Memory and gear</h2>
+<p>Every agent's conversation log goes into the same ledger (L1). A loop ingests new entries once a minute, and logs on other machines are pulled back over SSH and rsync. Original events are append-only, never edited. Conclusions worth keeping are written separately as long-term notes (L2), things like my user model, the system model, topic knowledge, and cross-project lessons. Every note has to cite raw events from the ledger, and without a citation the write is rejected. So if I switch agents, or switch to another vendor's model, it can still trace where each thing came from.</p>
+<p>Capabilities live in a registry called armory, with skills, tools, MCP servers, and workflows all registered there. When one is needed, an enable command links it into the skill directories of the agent hosts, so Claude and Codex use the same copy. The system's own capabilities are CLI programs first, that is the authoritative copy, and a skill is a description generated from the CLI so the agent hosts can discover it. There is a diagram of the memory part on the <a href="/en/projects/theseus/">Theseus project page</a>.</p>
+<h2 id="Why it is called Theseus">Why it is called Theseus</h2>
+<p>The name comes from the Ship of Theseus. I think of one person solving problems with a group of agents as someone piloting a science-fiction Ship of Theseus through interstellar space, with parts being swapped all the time. Quite a few parts have been swapped in the past seven months or so. The agent framework changed (early this year it was OpenClaw, now it is the ones mentioned above), the code went through a round of refactoring, and in early October I archived everything not in use. Even the version of the interface I had built was pulled and sent back to the requirements stage to be thought through again.</p>
+<p>What does not change is a few things I write myself, the vision document and a ledger of my own words. Only I can edit the vision document, and an agent that wants a change can only propose it. The ledger is append-only. The parts are named after a ship. The bridge is the human-machine interface, the drive handles compute and cost, comms handles talking to the outside, and the armory holds the gear.</p>
+<p>I gave it a few rules. Before adding a new component, first answer what would happen without it. Components that fall out of use get archived, no dead code left behind. Whatever can live in one repository does not get scattered across the system, so it is easy to migrate and easy to understand.</p>
+<h2 id="What is not done yet">What is not done yet</h2>
+<p>I call it an OS, but right now it is closer to a set of conventions plus a few programs. No program manages cross-machine dispatch yet, an agent just follows the rules and SSHes over itself. There is no device inventory in the system, nothing picks a machine based on GPU, network, or where the data is, and two machines editing the same thing are not coordinated either. The more established approach is a task queue with workers (Celery and the like), where the agent breaks my goal into tasks and judges whether the results are right, and queueing and moving are handed to deterministic programs. That path has not been started.</p>
+<p>The other thing not done is the intent tree. When I work with agents, an intention is rarely a straight line. It forks as we go, jumps to something else, and comes back a while later. Right now this tree only lives in the conversation, and the small things that fork off often have nobody to close them out. I want the system to draw it, so I can always see which branch I am on, what the root is, and what is still unclosed. Beyond forking, switching, and merging, what other basic operations there should be, I have not figured out.</p>
+<h2 id="Looking for people to talk with">Looking for people to talk with</h2>
+<p>I wrote this mainly to find people building similar things. If you are also putting together a system like this for yourself, a few machines, a few agents, one shared memory, or if you are thinking about the questions below, you are welcome to email me. The address is on the <a href="/en/about/">about page</a>.</p>
+<ol>
+<li>For task dispatch in a personal system, should it be rules, a queue, or agents negotiating among themselves?</li>
+<li>When several agents write into long-term memory together, how do you make sure the conclusions are trustworthy? Right now Theseus only checks whether a citation exists. It does not check whether the cited event is real, or whether it actually supports the conclusion.</li>
+<li>Has anyone built an intent tree, and what should the basic operations be?</li>
+</ol>
+
+    <p class="tags">Tags: Theseus, agent, personal AI system, distributed</p>
+  </article>
+  <nav class="pager"><span><a href="/en/#writing">← All writing</a></span><span></span></nav>
+
+  <footer class="foot">
+    © 2018–2026 You Yuan (游渊). Posts are licensed under <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/">CC BY-NC-ND 4.0</a> unless stated otherwise. <a href="/en/about/">About</a> · <a href="/archives/">Posts</a> · <a href="/feed.xml">RSS</a> · <a href="/" lang="zh-CN" hreflang="zh-CN">中文</a><br>
+    This site uses no generator; every page is hand-written HTML. The pictures are 1-bit pixel art drawn by a program.
+  </footer>
+
+</div>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a5f31fd19bf14dda997cec8c57718059"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

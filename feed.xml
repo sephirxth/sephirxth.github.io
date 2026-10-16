@@ -4,10 +4,17 @@
   <id>https://sephirxth.github.io/</id>
   <link href="https://sephirxth.github.io/" />
   <link href="https://sephirxth.github.io/feed.xml" rel="self" type="application/atom+xml" />
-  <updated>2026-08-13T18:30:00+08:00</updated>
+  <updated>2026-10-16T21:00:00+08:00</updated>
   <author>
     <name>游渊 YouYuan</name>
   </author>
+  <entry>
+    <title>Theseus：把几台机器和几家 agent 当成一台电脑来用</title>
+    <id>https://sephirxth.github.io/2026/10/16/theseus-personal-ai-os/</id>
+    <link href="https://sephirxth.github.io/2026/10/16/theseus-personal-ai-os/" />
+    <updated>2026-10-16T21:00:00+08:00</updated>
+    <summary type="text">Theseus 是我给自己做的 AI 系统，这篇写它怎么把几台机器和几家的 agent 当成一个系统来用，现在做到哪了，还缺什么。</summary>
+  </entry>
   <entry>
     <title>从自建DERP到Peer Relay：用阿里云ECS稳定访问内网服务</title>
     <id>https://sephirxth.github.io/2026/08/13/%E4%BB%8E%E8%87%AA%E5%BB%BADERP%E5%88%B0Peer-Relay%EF%BC%9A%E7%94%A8%E9%98%BF%E9%87%8C%E4%BA%91ECS%E7%A8%B3%E5%AE%9A%E8%AE%BF%E9%97%AE%E5%86%85%E7%BD%91%E6%9C%8D%E5%8A%A1/</id>

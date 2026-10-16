@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theseus：把几台机器和几家 agent 当成一台电脑来用 · 游渊 YouYuan</title>
+<meta name="description" content="Theseus 是我给自己做的 AI 系统，这篇写它怎么把几台机器和几家的 agent 当成一个系统来用，现在做到哪了，还缺什么。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Theseus：把几台机器和几家 agent 当成一台电脑来用">
+<meta property="og:description" content="Theseus 是我给自己做的 AI 系统，这篇写它怎么把几台机器和几家的 agent 当成一个系统来用，现在做到哪了，还缺什么。">
+<meta property="og:url" content="https://sephirxth.github.io/2026/10/16/theseus-personal-ai-os/">
+<meta property="og:image" content="https://sephirxth.github.io/assets/img/share-ship.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" hreflang="zh-CN" href="https://sephirxth.github.io/2026/10/16/theseus-personal-ai-os/">
+<link rel="alternate" hreflang="en" href="https://sephirxth.github.io/en/2026/10/16/theseus-personal-ai-os/">
+<link rel="alternate" hreflang="x-default" href="https://sephirxth.github.io/2026/10/16/theseus-personal-ai-os/">
+<link rel="icon" href="/images/favicon.png">
+<link rel="alternate" type="application/atom+xml" title="游渊 YouYuan" href="/feed.xml">
+<link rel="stylesheet" href="/assets/css/site.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <a class="mark" href="/"><img class="px" src="/assets/img/mark-rule90.png" width="62" height="32" alt="回到首页"></a>
+    <div class="who"><a class="name" href="/">YOU YUAN</a><p class="links"><a href="/en/2026/10/16/theseus-personal-ai-os/" lang="en" hreflang="en">English</a></p></div>
+  </div>
+
+  <article class="post">
+    <header>
+      <h1>Theseus：把几台机器和几家 agent 当成一台电脑来用</h1>
+      <p class="meta"><time datetime="2026-10-16">2026-10-16</time></p>
+    </header>
+<p>我从 2026 年 3 月开始给自己做一套 AI 协作系统，叫 Theseus，一个人做。现在我用它的方式越来越像在用一台电脑，只不过这台电脑分散在好几台机器上，里面跑的进程是 Claude Code、Codex、Kimi、Hermes 这几家的 agent。这篇把这个想法写下来，哪些已经在跑，哪些还只是想法，都照实写。我也想借这篇找做类似东西的人聊聊。</p>
+<h2 id="缺的是注意力">缺的是注意力</h2>
+<p>我现在很多工作都交给 agent 做，写代码、查资料、跑实验、整理文档之类的。机器不缺，agent 也不缺，缺的是我自己的注意力（Theseus 愿景文档里的第一条约束就是这个，人的注意力是整个系统里最稀缺的资源）。所以我想要的用法是，我只说要做成什么，这件事放在哪台机器上跑、要准备哪些数据、做完怎么把结果交回来，都由系统自己安排。说白了，分布式计算、任务派发、数据同步，应该是 Theseus 自己的事。</p>
+<h2 id="几台机器当一台用">几台机器当一台用</h2>
+<p>现在的分工是照着电脑的存储层次来的。云上那台服务器当内存，快，但空间小，也说不准哪天就不用了，所以任务要什么就加载什么，做完就卸载。家里那台电脑（Windows 里跑 WSL，有一张 RTX 3080）当硬盘，要长期留着的东西都存在那边，要用 GPU 的步骤也在那边跑。笔记本和 NAS 通过 Syncthing 跟家里电脑的一个盘双向同步，交给我看的成品放进这个盘，几台设备上就都能打开。</p>
+<p>几台机器之间走 Tailscale（中间折腾的过程写在<a href="/2026/08/13/%E4%BB%8E%E8%87%AA%E5%BB%BADERP%E5%88%B0Peer-Relay%EF%BC%9A%E7%94%A8%E9%98%BF%E9%87%8C%E4%BA%91ECS%E7%A8%B3%E5%AE%9A%E8%AE%BF%E9%97%AE%E5%86%85%E7%BD%91%E6%9C%8D%E5%8A%A1/">《从自建 DERP 到 Peer Relay》</a>那篇里）。有两条规则是我定的，独有的数据不能只放在云上那台机器上，卸载之前要先核对家里那份是完整的，大批量的传输只在凌晨一点到七点跑（北京时间），不占白天的带宽。</p>
+<p>下一步想把闲着的设备也接进来。家里那台群晖 NAS 现在只跑一个 Syncthing，我在考虑把它刷成 Linux，交给 agent 远程管理，还有几台旧手机和旧电脑，也在想怎么让它们干点活。</p>
+<h2 id="几家的 agent 当进程">几家的 agent 当进程</h2>
+<p>agent 我同时用好几家的，Claude Code、OpenAI 的 Codex、Kimi，还有 Hermes。它们读的是同一份规则文件（AGENTS.md），各家的配置入口都是指向这一份的软链接，改规则只改一处。平时一个 agent 跟我对话、做设计，耗时的活（写代码、联网调研、长实验之类的）交给别的 agent 在后台跑，跑完留一个 done 标记，主 agent 看到了再去验收。</p>
+<p>订阅额度在我这里也算算力（愿景里管算力的部件叫 drive，成本也归它管）。10 月 15 号有个订阅的额度快重置了，我让 agent 一口气开了 13 个子 agent 去做攒着的活，二十分钟左右就把那五个小时的额度用完了。</p>
+<h2 id="记忆和装备">记忆和装备</h2>
+<p>每个 agent 的对话记录都会收进同一本账里（L1），每分钟增量收一次，别的机器上的记录用 SSH 和 rsync 拉回来，原始事件只追加，不改。以后还要用的结论另外写成长期笔记（L2），比如我的用户模型、系统模型、主题知识、跨项目的经验，每条笔记都要引用账本里的原始事件，没有引用就写不进去。所以换一个 agent，或者换一家的模型，之前的事它也查得到出处。</p>
+<p>能力放在一个库里，叫 armory，skill、工具、MCP、workflow 之类的都在里面登记。要用的时候跑一条 enable 命令，把它链接到各家 agent 的技能目录下，Claude 和 Codex 用的是同一份。系统自己的能力以命令行程序为准，它是唯一的正本，skill 是从命令行生成出来的说明，方便 agent 宿主发现。记忆这部分在 <a href="/projects/theseus/">Theseus 的项目页</a>里有一张示意图。</p>
+<h2 id="为什么叫 Theseus">为什么叫 Theseus</h2>
+<p>名字取自忒修斯之船。我把一个人带着一群 agent 解决问题，想成一个人开着一艘科幻版的忒修斯之船在星际航行，船上的部件一直在换。这大半年换掉的东西确实不少，agent 框架换过（年初用的是 OpenClaw，现在是上面说的那几家），代码重构过一轮，十月初还把不在用的程序全归档了，连做过的一版人机界面也撤掉，退回需求阶段重新想。</p>
+<p>不换的是几份我自己写的东西，愿景文档和我的原话账本。愿景文档只有我能改，agent 想改只能提建议，原话账本只追加，不改。系统里的部件都用船上的叫法命名，bridge 是人机界面，drive 管算力和成本，comms 管对外通讯，armory 放装备。</p>
+<p>我给它定了几条规矩。加一个新部件之前，先回答不加会怎样。不用的部件归档，不留死代码。能放进同一个仓库的东西不散到系统各处，这样搬家容易，也好理解。</p>
+<h2 id="还没做到的">还没做到的</h2>
+<p>说是 OS，现在其实更像一套约定加几个程序。跨机器派活还没有程序在管，是 agent 照着规则自己 SSH 过去做的。系统里没有一张设备清单，也不会根据显卡、网络、数据在哪来挑机器，两台机器同时改一样东西也没有协调。比较成熟的做法是任务队列加执行程序（Celery 之类的），agent 负责把我的目标拆成任务、判断结果对不对，排队和搬运交给确定性的程序。这条路还没开始做。</p>
+<p>另一个没做的是意图树。我跟 agent 一起干活的时候，意图很少是一条直线，做着做着就分叉，跳到别的事上，过一阵再回来。现在这棵树只存在对话里，分出去的小事常常没人收尾。我想让系统把它画出来，随时能看到现在在哪个分支、根上是什么、还有哪些还悬着。分叉、切换、合并之外还该有哪些基本操作，我还没想清楚。</p>
+<h2 id="想找人聊">想找人聊</h2>
+<p>写这篇主要是想找做类似东西的人。如果你也在给自己搭这种系统，几台机器、几家 agent、一套共享的记忆，或者也在想下面这几个问题，欢迎写邮件给我，地址在<a href="/about/">关于页</a>上。</p>
+<ol>
+<li>个人系统里的任务派发，该用规则、用队列，还是让 agent 自己商量？</li>
+<li>好几个 agent 一起往长期记忆里写，怎么保证写进去的结论靠得住？现在 Theseus 只检查有没有引用，不检查引用的事件是真是假，也不检查它是不是真的支持那条结论。</li>
+<li>意图树有没有人做过，基本操作应该是哪几个？</li>
+</ol>
+
+    <p class="tags">标签：Theseus、agent、个人 AI 系统、分布式</p>
+  </article>
+  <nav class="pager"><span><a href="/2026/08/13/%E4%BB%8E%E8%87%AA%E5%BB%BADERP%E5%88%B0Peer-Relay%EF%BC%9A%E7%94%A8%E9%98%BF%E9%87%8C%E4%BA%91ECS%E7%A8%B3%E5%AE%9A%E8%AE%BF%E9%97%AE%E5%86%85%E7%BD%91%E6%9C%8D%E5%8A%A1/">← 从自建DERP到Peer Relay：用阿里云ECS稳定访问内网服务</a></span><span></span></nav>
+
+  <footer class="foot">
+    © 2018–2026 游渊 YouYuan。文章默认采用 <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/deed.zh-hans">CC BY-NC-ND 4.0</a>。<a href="/about/">关于</a> · <a href="/archives/">文章</a> · <a href="/feed.xml">RSS</a><br>
+    这个站点没用生成器，每一页都是直接写的 HTML。图是程序画的 1-bit 像素画。
+  </footer>
+
+</div>
+<!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a5f31fd19bf14dda997cec8c57718059"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
