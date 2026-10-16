@@ -15,6 +15,8 @@
 | `tools/figlib.py`、`tools/figs.py`、`tools/figs_*.py` | 项目页里的图：画图工具和每张图的代码 |
 | `archives/index.html` | 全部文章，按年份 |
 | `YYYY/MM/DD/<标题>/index.html` | 一篇文章一个目录，沿用旧地址，不要改名 |
+| `en/YYYY/MM/DD/<代号>/index.html` | 文章的英文版（有英文版的文章才有），代号和中文版相同 |
+| `tools/add_cf_beacon.py` | 给每一页加上（或换掉）访问统计的代码 |
 | `feed.xml` | Atom 订阅，手写 |
 | `assets/css/site.css` | 全站唯一的样式表 |
 | `assets/img/` | 1-bit 像素画，由 `tools/art.py` 画出 |
@@ -28,6 +30,18 @@
 2. 文章配图放进 `attachment/`，正文里写 `/attachment/文件名`。
 3. 在三处各加一行：首页的 WRITING 列表（只留最近 5 篇）、`archives/index.html`、`feed.xml`（同时改 `<updated>`）。
 4. 给上一篇文章底部的翻页链接补上“较新的一篇”。
+5. 2026-10-16 起，新文章的目录名用英文短代号（如 `theseus-personal-ai-os`），链接贴到别处不会变成一长串 `%E4%BB…`。旧文章的地址不动。
+6. 要出英文版时放到 `en/YYYY/MM/DD/<同一代号>/`，两页头部互相链接（`English` / `中文`），`<head>` 里写好三条 `hreflang`，英文首页的 WRITING 列表指向英文版。
+
+## 访问统计
+
+用的是 Cloudflare Web Analytics：不用 cookie，不用给访客弹提示。统计代码是放在 `</body>` 前面的一行 `<script>`，前后有 `<!-- Cloudflare Web Analytics -->` 标记；只做跳转的旧地址页面不放。复制现成页面来改，新页面自然带着这行。漏了或者要换 token，就重跑：
+
+```bash
+python3 tools/add_cf_beacon.py . <token>        # 先加 --dry-run 看会改几页
+```
+
+数据在 Cloudflare 后台的 Web Analytics 里看。装了广告屏蔽插件的访客不会被记到，所以实际人数会比后台多。
 
 ## 改首页上的项目
 
