@@ -4,10 +4,17 @@
   <id>https://sephirxth.github.io/</id>
   <link href="https://sephirxth.github.io/" />
   <link href="https://sephirxth.github.io/feed.xml" rel="self" type="application/atom+xml" />
-  <updated>2026-10-16T21:00:00+08:00</updated>
+  <updated>2026-10-17T20:00:00+08:00</updated>
   <author>
     <name>游渊 YouYuan</name>
   </author>
+  <entry>
+    <title>把入口拿回来：AI 时代的个人信息主权</title>
+    <id>https://sephirxth.github.io/2026/10/17/personal-information-sovereignty/</id>
+    <link href="https://sephirxth.github.io/2026/10/17/personal-information-sovereignty/" />
+    <updated>2026-10-17T20:00:00+08:00</updated>
+    <summary type="text">人们把找和筛信息的劳动交给平台，换来省力，付出的是主权。AI 让这笔交易的前提第一次松动，也可能让入口被第二次收走。这篇回顾这笔交易的来回，并提出一套以个人记录为中心、按需去找的技术思路。</summary>
+  </entry>
   <entry>
     <title>Theseus：把几台机器和几家 agent 当成一台电脑来用</title>
     <id>https://sephirxth.github.io/2026/10/16/theseus-personal-ai-os/</id>

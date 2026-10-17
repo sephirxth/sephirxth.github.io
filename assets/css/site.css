@@ -203,6 +203,18 @@ html:lang(en) .proj h2 { font-family: var(--serif); font-size: 27px; }
 .item .go { font-family: var(--ui); font-size: 12px; margin-top: 4px; }
 .item .go a { color: var(--soft); }
 
+/* ---------- long essays: indented paragraphs, wide figures, numbered references ---------- */
+.post.essay > p { text-indent: 2em; }
+.post.essay > figure.fig { width: 880px; max-width: calc(100vw - 104px); margin: 30px 0 36px; }
+.post.essay > figure.fig svg { width: 100%; height: auto; min-width: 600px; }
+.post.essay .cite { text-decoration: none; font-family: var(--ui); font-size: .62em; vertical-align: .55em; color: var(--soft); margin: 0 1px; }
+.post.essay .cite:hover { background: none; text-decoration: underline; }
+.post.essay ol.refs { font-size: 14px; line-height: 1.65; padding-left: 2.8em; color: var(--soft); }
+.post.essay ol.refs li { margin: 5px 0; }
+.post.essay ol.refs li:target { background: var(--mark); }
+.post.essay ol.refs a { overflow-wrap: anywhere; }
+@media (max-width: 640px) { .post.essay > figure.fig { max-width: calc(100vw - 36px); } }
+
 /* ---------- small screens ---------- */
 @media (max-width: 860px) {
   .row { grid-template-columns: minmax(0, 1fr); }
