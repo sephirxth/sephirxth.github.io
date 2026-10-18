@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sephirxth.github.io/sitemap.xml

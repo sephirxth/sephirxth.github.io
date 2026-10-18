@@ -16,7 +16,9 @@
 | `archives/index.html` | 全部文章，按年份 |
 | `YYYY/MM/DD/<标题>/index.html` | 一篇文章一个目录，沿用旧地址，不要改名 |
 | `en/YYYY/MM/DD/<代号>/index.html` | 文章的英文版（有英文版的文章才有），代号和中文版相同 |
-| `tools/add_cf_beacon.py` | 给每一页加上（或换掉）访问统计的代码 |
+| `tools/add_cf_beacon.py`、`tools/add_umami.py`、`tools/add_ga.py` | 给每一页加上（或换掉）访问统计的代码：Cloudflare、Umami、GA4 各一个 |
+| `tools/make_sitemap.py` | 生成 `sitemap.xml` |
+| `sitemap.xml`、`robots.txt` | 站点地图（脚本生成，不要手改）；`robots.txt` 手写，指向站点地图 |
 | `feed.xml` | Atom 订阅，手写 |
 | `assets/css/site.css` | 全站唯一的样式表 |
 | `assets/img/` | 1-bit 像素画，由 `tools/art.py` 画出 |
@@ -32,6 +34,7 @@
 4. 给上一篇文章底部的翻页链接补上“较新的一篇”。
 5. 2026-10-16 起，新文章的目录名用英文短代号（如 `theseus-personal-ai-os`），链接贴到别处不会变成一长串 `%E4%BB…`。旧文章的地址不动。
 6. 要出英文版时放到 `en/YYYY/MM/DD/<同一代号>/`，两页头部互相链接（`English` / `中文`），`<head>` 里写好三条 `hreflang`，英文首页的 WRITING 列表指向英文版。
+7. 提交前按下面"写新页面以后"重跑脚本，站点地图才会收进新页面。
 
 ## 访问统计
 
@@ -42,6 +45,27 @@ python3 tools/add_cf_beacon.py . <token>        # 先加 --dry-run 看会改几�
 ```
 
 数据在 Cloudflare 后台的 Web Analytics 里看。装了广告屏蔽插件的访客不会被记到，所以实际人数会比后台多。
+
+2026-10-18 起另有两套，也是有标记的块，只做跳转的页面同样不放：
+
+- Umami（自建）：`</body>` 前一行，紧跟 Cloudflare 那行，前后是 `<!-- Umami -->` 标记。
+- Google Analytics 4：`<head>` 后面紧挨着 11 行，是 Google 给的 gtag.js 原样代码，前后是 `<!-- Google Analytics -->` 标记。GA4 会在访客浏览器里写 cookie。
+
+## 写新页面以后
+
+复制现成页面来改，三套统计代码已经带着，但站点地图每加一页都要重跑。新页面写好、提交之前，在仓库根目录依次跑这四条：
+
+```bash
+python3 tools/add_cf_beacon.py . a5f31fd19bf14dda997cec8c57718059     # Cloudflare
+python3 tools/add_umami.py . 5b204497-f89b-4179-a471-cdeef73fc96f https://aws-ec2-oregon.tail17a64.ts.net/glyph.js   # Umami
+python3 tools/add_ga.py . G-GWLH236264                                # GA4
+python3 tools/make_sitemap.py .                                       # 站点地图，最后跑
+```
+
+- 四条都能重复跑：已有的块原样换掉，不会重复插。想先看会改几页，末尾加 `--dry-run`。`add_umami.py`、`add_ga.py` 加 `--remove`（不带 ID）是从所有页面撤掉那一块。
+- 上面写的 token、网站 ID、衡量 ID 本来就在网页源码里，不是秘密。Umami 的脚本地址换了，就带新地址重跑第二条。
+- `make_sitemap.py` 收进所有真实页面，不收只做跳转的旧地址页和 `404.html`；`lastmod` 取该文件最后一次提交的日期，还没提交的改动算今天。所以它要在这个 git 仓库里跑、放在最后跑，再把页面和 `sitemap.xml` 一起提交。
+- `robots.txt` 不用动。Google Search Console 里提交的站点地图地址是 `https://sephirxth.github.io/sitemap.xml`。
 
 ## 改首页上的项目
 
