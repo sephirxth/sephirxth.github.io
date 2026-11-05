@@ -33,6 +33,7 @@ export class World {
     this.time = 0;
     this.releasedMass = 0;
     this.events = { ignited: 0, boiled: 0, condensed: 0, extinguished: 0, melted: 0 };
+    this.effects = [];
   }
   random() {
     this.seed ^= this.seed << 13;
@@ -63,6 +64,15 @@ export class World {
   }
   totalMass() { return this.mass.reduce((sum, n) => sum + n, 0); }
   count(kind) { return this.kind.reduce((n, k) => n + (k === kind), 0); }
+  effect(type, i, fromKind, toKind, intensity) {
+    if (this.effects.length >= 256) return;
+    this.effects.push({ type, x: i % this.width, y: Math.floor(i / this.width), kind: toKind, fromKind, toKind, intensity: clamp(intensity, 0, 1) });
+  }
+  drainEffects() {
+    const effects = this.effects;
+    this.effects = [];
+    return effects;
+  }
   exchange(a, b, dt) {
     if (!this.kind[a] || !this.kind[b] || this.mass[a] <= 0 || this.mass[b] <= 0) return;
     const capacity = Math.min(this.mass[a], this.mass[b]);
@@ -126,6 +136,7 @@ export class World {
       if (kind === K.LIGHTNING) {
         // A pulse deposits energy only in adjacent material; conduction carries it onward.
         if (this.age[i] <= dt + .00001) {
+          if (this.age[i] === dt) this.effect('lightning', i, kind, kind, Math.abs(this.charge[i]) / 5);
           for (const n of this.neighbors(i)) if (this.kind[n] && this.mass[n] > 0) this.temp[n] = Math.min(6000, this.temp[n] + 4500 / this.mass[n]);
         }
         if (this.age[i] >= .35) this.vanish(i);
@@ -133,32 +144,50 @@ export class World {
       }
       if (kind === K.FIRE) {
         const water = this.neighbors(i).filter(n => this.previousKind[n] === K.WATER || this.previousKind[n] === K.ICE);
+        let extinguished = false;
         if (water.length) {
           this.fuel[i] -= water.length * 18 * dt;
           for (const n of water) this.temp[n] += 500 * dt;
-          if (this.fuel[i] <= 0) this.events.extinguished++;
+          if (this.fuel[i] <= 0) {
+            this.events.extinguished++;
+            extinguished = true;
+          }
         }
         if (this.fuel[i] > 0 && this.temp[i] < 1100) this.temp[i] = Math.min(1100, this.temp[i] + 4000 * dt);
         this.fuel[i] -= dt;
-        if (this.fuel[i] <= 0) this.finishFire(i);
+        if (this.fuel[i] <= 0) {
+          this.finishFire(i);
+          if (extinguished) this.effect('extinguish', i, kind, this.kind[i], water.length / 3);
+        }
       } else if (kind === K.WOOD && this.temp[i] > 600) {
         this.kind[i] = K.FIRE;
         this.fuel[i] = clamp(this.fuel[i], 1, 5);
         this.residue[i] = Math.max(0, this.mass[i] - .3);
         this.age[i] = 0;
         this.events.ignited++;
+        this.effect('ignite', i, kind, K.FIRE, Math.max(.3, (this.temp[i] - 600) / 500));
       } else if (kind === K.WATER && this.temp[i] > 373) {
         this.kind[i] = K.STEAM;
         this.events.boiled++;
+        this.effect('boil', i, kind, K.STEAM, Math.max(.25, (this.temp[i] - 373) / 600));
       } else if (kind === K.STEAM && this.temp[i] < 280) {
         this.kind[i] = K.WATER;
         this.events.condensed++;
-      } else if (kind === K.WATER && this.temp[i] < 273) this.kind[i] = K.ICE;
-      else if (kind === K.ICE && this.temp[i] > 273) this.kind[i] = K.WATER;
-      else if (kind === K.GOLD && this.temp[i] > 1370) {
+        this.effect('condense', i, kind, K.WATER, Math.max(.25, (280 - this.temp[i]) / 150));
+      } else if (kind === K.WATER && this.temp[i] < 273) {
+        this.kind[i] = K.ICE;
+        this.effect('freeze', i, kind, K.ICE, Math.max(.25, (273 - this.temp[i]) / 80));
+      } else if (kind === K.ICE && this.temp[i] > 273) {
+        this.kind[i] = K.WATER;
+        this.effect('thaw', i, kind, K.WATER, Math.max(.25, (this.temp[i] - 273) / 300));
+      } else if (kind === K.GOLD && this.temp[i] > 1370) {
         this.kind[i] = K.MOLTEN;
         this.events.melted++;
-      } else if (kind === K.MOLTEN && this.temp[i] < 1370) this.kind[i] = K.GOLD;
+        this.effect('melt', i, kind, K.MOLTEN, Math.max(.3, (this.temp[i] - 1370) / 1500));
+      } else if (kind === K.MOLTEN && this.temp[i] < 1370) {
+        this.kind[i] = K.GOLD;
+        this.effect('solidify', i, kind, K.GOLD, Math.max(.3, (1370 - this.temp[i]) / 1000));
+      }
       this.temp[i] = clamp(this.temp[i], 0, 6000);
     }
     this.moved.fill(0);
@@ -236,6 +265,7 @@ export function example(world, name = 'forest') {
   world.tick = 0;
   world.time = 0;
   world.releasedMass = 0;
+  world.drainEffects();
   for (const key of Object.keys(world.events)) world.events[key] = 0;
   const w = world.width, h = world.height, floor = h - 4;
   const line = (x1, x2, y, kind) => { for (let x = x1; x <= x2; x++) world.set(x, y, kind); };

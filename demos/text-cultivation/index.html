@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#faf9f5">
-  <meta name="description" content="用水、火、木、金写一片天地。基于文字修仙 v11 材料规则改写的元胞自动机网页实验。">
-  <title>文字修仙 · 元胞实验</title>
+  <meta name="description" content="用水、火、木、金写一片天地。落笔写下材料，看火蔓延、水流动、冰融化。">
+  <title>文字修仙 · 写一片天地</title>
   <link rel="canonical" href="https://sephirxth-text-cultivation.vercel.app/">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -16,8 +16,7 @@
       <a href="#rules">怎么演化</a>
     </header>
     <div class="title-row">
-      <div><h1>文字修仙<span>元胞实验</span></h1><p class="intro">选择材料，拖动写入，观察它们的变化。</p></div>
-      <p class="version">基于 v11 材料规则的格子改写<br>网页试玩 · 无需下载</p>
+      <div><h1>文字修仙</h1><p class="intro">选一个字，在纸上拖动。水会流，木会燃。</p></div>
     </div>
     <section class="workbench" aria-label="文字修仙实验沙盘">
       <div class="toolbar">
@@ -30,6 +29,10 @@
           <label>速度 <select id="speed"><option value="0.25">0.25×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
           <label>示例 <select id="example"><option value="forest">火点木</option><option value="water">水与冰</option><option value="lightning">雷与金</option><option value="blank">空白天地</option></select></label>
         </div>
+        <div class="feedback-controls" role="group" aria-label="声音与动态">
+          <button id="sound-toggle" type="button" aria-pressed="false" title="开启材料声音">声音 关</button>
+          <button id="motion-toggle" type="button" aria-pressed="true" title="切换减少动态效果">动态 完整</button>
+        </div>
       </div>
       <div class="field-wrap">
         <canvas id="field" width="1280" height="680" tabindex="0" aria-label="可画材料的二维字网格。拖动鼠标或手指绘制；方向键移动我，回车在身前写字。" aria-describedby="keyboard-help">此浏览器不支持 Canvas，请使用新版浏览器。</canvas>
@@ -38,6 +41,7 @@
       <div class="readout">
         <span id="clock">演化 0.0 秒</span>
         <span id="cell-info">拖动写字 · 右键擦除</span>
+        <span id="stage-status" aria-hidden="true">落笔，看看会发生什么。</span>
         <label class="spirit">灵力 <meter id="spirit" min="0" max="180" value="180">180 / 180</meter><output id="spirit-number">180 / 180</output></label>
       </div>
       <div class="materials" id="materials" role="group" aria-label="选择材料"></div>
@@ -45,7 +49,7 @@
         <p id="material-hint">水向低处流，遇热变汽，遇冷结冰。</p>
         <label>笔宽 <select id="brush"><option value="0" selected>1 格</option><option value="1">3 格</option><option value="2">5 格</option></select></label>
       </div>
-      <p id="notice" class="notice" role="status" aria-live="polite">先看左边的火把木点着，再选水拖到火上。</p>
+      <p id="notice" class="notice" role="status" aria-live="polite">先看火把木点着，再选水拖到火上。</p>
       <div class="touch-move" aria-label="移动我">
         <span>移动我</span><button type="button" data-move="left" aria-label="我向左">左</button><button type="button" data-move="up" aria-label="我向上">上</button><button type="button" data-move="down" aria-label="我向下">下</button><button type="button" data-move="right" aria-label="我向右">右</button><button type="button" id="write-ahead">写字</button>
       </div>
@@ -60,7 +64,7 @@
         <div><dt>写字与灵力</dt><dd>每写一格消耗 1 点灵力，上限 180，每秒恢复 12。擦除免费，暂停时灵力也暂停。方向键移动“我”，回车在身前写字。这里没有战斗或通关目标。</dd></div>
       </dl>
     </section>
-    <footer><p>这是独立的网页实验。沿用原型的材料和温度阈值，把连续粒子改成邻格运动，新增土与接触灭火；未包含原版的创世生态、渡劫与死亡。</p><a href="https://sephirxth.github.io/projects/text-cultivation/">阅读原型记录 ↗</a><span>游渊 YouYuan · 2026</span></footer>
+    <footer><p>独立网页实验，基于 v11 材料规则。沿用原型的材料和温度阈值，把连续粒子改成邻格运动，新增土与接触灭火；未包含原版的创世生态、渡劫与死亡。声音默认关闭，开启后可听见材料变化。</p><a href="https://sephirxth.github.io/projects/text-cultivation/">阅读原型记录 ↗</a><span>游渊 YouYuan · 2026</span></footer>
   </main>
   <noscript><p class="noscript">需要启用 JavaScript 才能运行沙盘。规则说明仍可阅读。</p></noscript>
   <script type="module" src="app.mjs"></script>

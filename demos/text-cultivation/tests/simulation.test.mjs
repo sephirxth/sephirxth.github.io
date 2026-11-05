@@ -109,3 +109,156 @@ test('writing spends spirit once per changed cell, with free erase and capped re
   for (let i = 0; i < 400; i++) sim.singleStep();
   assert.equal(sim.spirit, 180);
 });
+
+test('phase effects describe real conversions at their source before material moves', () => {
+  const conversions = [
+    [K.WOOD, 601, 'ignite', K.FIRE],
+    [K.WATER, 374, 'boil', K.STEAM],
+    [K.STEAM, 279, 'condense', K.WATER],
+    [K.WATER, 272, 'freeze', K.ICE],
+    [K.ICE, 274, 'thaw', K.WATER],
+    [K.GOLD, 1371, 'melt', K.MOLTEN],
+    [K.MOLTEN, 1369, 'solidify', K.GOLD],
+  ];
+  for (const [fromKind, temp, type, toKind] of conversions) {
+    const world = new World(5, 5, { ambient: false });
+    world.set(2, 2, fromKind, { temp });
+    assert.deepEqual(world.drainEffects(), [], 'writing material is not a physical reaction');
+    world.step();
+    assert.equal(world.count(toKind), 1, type);
+    assert.equal(world.count(fromKind), 0, type);
+    const effects = world.drainEffects();
+    assert.equal(effects.length, 1, type);
+    const effect = effects[0];
+    assert.deepEqual(Object.keys(effect).sort(), ['fromKind', 'intensity', 'kind', 'toKind', 'type', 'x', 'y']);
+    assert.deepEqual({ ...effect, intensity: 1 }, { type, x: 2, y: 2, kind: toKind, fromKind, toKind, intensity: 1 });
+    assert.ok(Number.isFinite(effect.intensity) && effect.intensity > 0 && effect.intensity <= 1, type);
+    if (type === 'boil' || type === 'condense' || type === 'thaw' || type === 'melt') {
+      assert.equal(world.kind[world.index(2, 2)], K.EMPTY, `${type} moves after recording its source`);
+    }
+    world.step();
+    assert.deepEqual(world.drainEffects(), [], `${type} does not repeat on an unchanged material`);
+  }
+});
+
+test('exact transition thresholds and ordinary falling produce no reaction effects', () => {
+  for (const [kind, temp] of [[K.WOOD, 600], [K.WATER, 373], [K.STEAM, 280], [K.WATER, 273], [K.ICE, 273], [K.GOLD, 1370], [K.MOLTEN, 1370]]) {
+    const world = new World(5, 5, { ambient: false });
+    world.set(2, 2, kind, { temp });
+    world.step();
+    assert.equal(world.count(kind), 1);
+    assert.deepEqual(world.drainEffects(), []);
+  }
+  const world = new World(5, 5, { ambient: false });
+  world.set(2, 0, K.EARTH);
+  world.step();
+  assert.equal(world.kind[world.index(2, 1)], K.EARTH);
+  assert.deepEqual(world.drainEffects(), []);
+});
+
+test('water emits one extinguish effect when it finishes a flame, including ash residue', () => {
+  for (const residue of [0, .5]) {
+    const world = new World(5, 5, { ambient: false });
+    world.set(2, 3, K.FIRE, { residue });
+    for (const [x, y] of [[1, 3], [3, 3], [2, 2]]) world.set(x, y, K.WATER);
+    world.set(2, 4, K.GOLD);
+    world.step();
+    assert.equal(world.count(K.FIRE), 0);
+    const effects = world.drainEffects().filter(effect => effect.type === 'extinguish');
+    const toKind = residue ? K.ASH : K.EMPTY;
+    assert.deepEqual(effects, [{ type: 'extinguish', x: 2, y: 3, kind: toKind, fromKind: K.FIRE, toKind, intensity: 1 }]);
+    world.step();
+    assert.equal(world.drainEffects().filter(effect => effect.type === 'extinguish').length, 0);
+  }
+  const burning = new World(5, 5, { ambient: false });
+  burning.set(2, 2, K.FIRE, { fuel: 5 });
+  burning.set(1, 2, K.WATER);
+  burning.step();
+  assert.equal(burning.count(K.FIRE), 1);
+  assert.equal(burning.drainEffects().filter(effect => effect.type === 'extinguish').length, 0);
+});
+
+test('lightning announces its first discharge once, even for tiny steps', () => {
+  for (const dt of [.05, .000001]) {
+    const world = new World(5, 5, { ambient: false });
+    world.set(2, 2, K.LIGHTNING);
+    world.set(3, 2, K.GOLD);
+    const gold = world.index(3, 2), initialTemp = world.temp[gold];
+    assert.deepEqual(world.drainEffects(), []);
+    world.step(dt);
+    assert.ok(world.temp[gold] > initialTemp, 'the reported pulse actually heats its neighbor');
+    assert.ok(world.charge[gold] > 0, 'the reported pulse actually charges its conductor');
+    const effects = world.drainEffects();
+    assert.equal(effects.length, 1);
+    assert.equal(effects[0].type, 'lightning');
+    assert.equal(effects[0].x, 2);
+    assert.equal(effects[0].y, 2);
+    assert.equal(effects[0].kind, K.LIGHTNING);
+    assert.equal(effects[0].fromKind, K.LIGHTNING);
+    assert.equal(effects[0].toKind, K.LIGHTNING);
+    assert.ok(effects[0].intensity > 0 && effects[0].intensity <= 1);
+    for (let i = 0; i < 12; i++) world.step(dt);
+    assert.equal(world.drainEffects().filter(effect => effect.type === 'lightning').length, 0);
+    assert.equal(world.count(K.LIGHTNING), dt === .05 ? 0 : 1);
+  }
+});
+
+test('effects stay in bounds, drain once, and reset with every example', () => {
+  const world = new World(5, 5, { ambient: false });
+  world.set(0, 0, K.WATER, { temp: 374 });
+  world.set(4, 4, K.GOLD, { temp: 1371 });
+  assert.equal(world.set(-1, 0, K.LIGHTNING), false);
+  assert.equal(world.set(5, 0, K.LIGHTNING), false);
+  world.step();
+  const effects = world.drainEffects();
+  assert.equal(effects.length, 2);
+  assert.deepEqual(effects.map(({ x, y }) => [x, y]), [[0, 0], [4, 4]]);
+  assert.deepEqual(world.drainEffects(), []);
+  world.set(2, 2, K.LIGHTNING);
+  world.step();
+  assert.equal(effects.length, 2, 'a returned batch stays detached from later events');
+  for (const name of ['blank', 'forest', 'water', 'lightning']) {
+    world.set(2, 2, K.LIGHTNING);
+    world.step();
+    example(world, name);
+    assert.deepEqual(world.drainEffects(), [], name);
+  }
+});
+
+test('the effect queue is bounded without dropping physical reactions and refills after consumption', () => {
+  const world = new World(20, 20, { ambient: false });
+  for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) world.set(x, y, K.WOOD, { temp: 700 });
+  world.step();
+  assert.equal(world.events.ignited, 400);
+  assert.equal(world.count(K.FIRE), 400);
+  const effects = world.drainEffects();
+  assert.equal(effects.length, 256);
+  assert.ok(effects.every(effect => effect.type === 'ignite'));
+  assert.equal(new Set(effects.map(({ x, y }) => `${x},${y}`)).size, 256);
+  assert.deepEqual(world.drainEffects(), []);
+  world.set(0, 0, K.LIGHTNING);
+  world.step();
+  assert.ok(world.drainEffects().some(effect => effect.type === 'lightning'));
+});
+
+test('consuming effects does not change physical state or the random sequence', () => {
+  for (const name of ['forest', 'water', 'lightning']) {
+    const retained = new World(36, 34, { seed: 9182 });
+    const consumed = new World(36, 34, { seed: 9182 });
+    example(retained, name);
+    example(consumed, name);
+    for (let i = 0; i < 240; i++) {
+      retained.step();
+      consumed.step();
+      consumed.drainEffects();
+      for (const field of ['kind', 'temp', 'mass', 'charge', 'fuel', 'age', 'residue']) {
+        assert.deepEqual(consumed[field], retained[field], `${name} ${field} at step ${i}`);
+      }
+      assert.equal(consumed.seed, retained.seed, `${name} random seed at step ${i}`);
+      assert.equal(consumed.releasedMass, retained.releasedMass);
+      assert.deepEqual(consumed.events, retained.events);
+    }
+    assert.deepEqual(consumed.drainEffects(), []);
+    assert.ok(retained.drainEffects().length > 0);
+  }
+});
