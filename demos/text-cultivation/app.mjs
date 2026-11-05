@@ -2,6 +2,7 @@ import { K, materials, World, Simulation, example } from './simulation.mjs';
 import { createGLRenderer } from './render-gl.mjs';
 import { createEffects } from './effects.mjs';
 import { createAudio } from './audio.mjs';
+import { createOpening } from './opening.mjs';
 
 const $ = id => document.getElementById(id);
 let canvas = $('field');
@@ -189,8 +190,28 @@ function reset() {
   status('写下一个字，让它开始变化。', 2400);
   wake(); updateReadout();
 }
-$('reset').addEventListener('click', reset);
-$('example').addEventListener('change', reset);
+$('reset').addEventListener('click', () => { endOpening(false); reset(); });
+$('example').addEventListener('change', () => { if ($('example').value === 'opening') playOpening(); else { endOpening(false); reset(); } });
+// Opening: 我 rides a sword of 金 through the thunder tribulation, then the 山水 scene begins.
+let opening = null;
+function playOpening() {
+  if (!effects.setStage || !fullMotion) { $('example').value = 'landscape'; reset(); return; }
+  effects.fx.clear();
+  opening = createOpening({ renderer: effects, K, width: world.width, height: world.height, sound, mobile });
+  effects.setStage(opening.stage);
+  $('skip-opening').hidden = false;
+  $('notice').textContent = '开场：剑修渡劫。点一下画布或按任意键可以跳过。';
+  wake();
+}
+function endOpening(startScene = true) {
+  if (!opening) return;
+  opening.finish(); opening = null;
+  effects.setStage(null); effects.fx.clear();
+  $('skip-opening').hidden = true;
+  if ($('example').value === 'opening') $('example').value = 'landscape';
+  if (startScene) reset();
+}
+$('skip-opening').addEventListener('click', () => endOpening());
 setPause(reduceMotion.matches);
 function fit() {
   const rect = canvas.getBoundingClientRect(), ratio = Math.min(devicePixelRatio || 1, 2);
@@ -204,7 +225,7 @@ function render() {
   dirty = false;
 }
 function updateReadout() {
-  $('clock').textContent = `${simulation.paused ? '已暂停' : '演化'} ${world.time.toFixed(1)} 秒`;
+  $('clock').textContent = opening ? `开场 ${opening.time.toFixed(1)} 秒` : `${simulation.paused ? '已暂停' : '演化'} ${world.time.toFixed(1)} 秒`;
   $('spirit').value = simulation.spirit;
   $('spirit-number').textContent = `${Math.floor(simulation.spirit)} / 180`;
   if (spiritGroup) spiritGroup.dataset.state = performance.now() < spentUntil ? 'spent' : simulation.spirit < 20 ? 'low' : 'recovering';
@@ -260,6 +281,7 @@ function paintLine(start, end, kind) {
   acknowledgeWrite(count, end, kind);
 }
 canvas.addEventListener('pointerdown', event => {
+  if (opening) { event.preventDefault(); endOpening(); return; }
   if ((event.button !== 0 && event.button !== 2) || pointer) return;
   event.preventDefault(); canvas.focus({ preventScroll: true });
   pointer = { id: event.pointerId, kind: event.button === 2 ? K.EMPTY : selected };
@@ -297,6 +319,7 @@ for (const button of document.querySelectorAll('[data-move]')) button.addEventLi
 $('write-ahead').addEventListener('click', writeAhead);
 document.addEventListener('keydown', event => {
   if (event.ctrlKey || event.altKey || event.metaKey || /INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) return;
+  if (opening && !['Shift', 'Tab'].includes(event.key)) { event.preventDefault(); endOpening(); return; }
   const key = event.key.toLowerCase();
   if (/^[1-9]$/.test(key)) selectMaterial([K.WATER, K.FIRE, K.WOOD, K.GOLD, K.EARTH, K.ICE, K.STEAM, K.LIGHTNING, K.EMPTY][Number(key) - 1]);
   else if (key === 'e') selectMaterial(K.EMPTY);
@@ -320,7 +343,8 @@ new IntersectionObserver(entries => {
 new ResizeObserver(fit).observe(canvas);
 // Wait briefly for the brush face so the first written scene uses it.
 await Promise.race([document.fonts?.load?.('64px BrushKai', '水火木金土冰汽雷灰我') ?? Promise.resolve(), new Promise(done => setTimeout(done, 1500))]).catch(() => {});
-reset(); fit();
+fit();
+if (fullMotion && effects.setStage) playOpening(); else reset();
 document.fonts.ready.then(() => { effects.invalidate(); wake(); });
 function frame(now) {
   animation = 0;
@@ -330,7 +354,8 @@ function frame(now) {
   lastFrame = now;
   // Presentation time advances like the renderer's clock, so the hold matches the intro on slow devices too.
   presentTime += Math.min(.05, elapsed);
-  if (presentTime >= holdUntil) simulation.advance(elapsed);
+  if (opening) { opening.update(Math.min(.05, elapsed)); if (opening.done) endOpening(); }
+  else if (presentTime >= holdUntil) simulation.advance(elapsed);
   const events = consumeEffects();
   if (pointer && cursor) {
     drawCredit += Math.min(.2, elapsed) * 20;

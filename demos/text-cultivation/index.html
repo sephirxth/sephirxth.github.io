@@ -28,7 +28,7 @@
         </div>
         <div class="settings">
           <label>速度 <select id="speed"><option value="0.25">0.25×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
-          <label>示例 <select id="example"><option value="landscape" selected>山水</option><option value="forest">火点木</option><option value="water">水与冰</option><option value="lightning">雷与金</option><option value="blank">空白天地</option></select></label>
+          <label>示例 <select id="example"><option value="landscape" selected>山水</option><option value="opening">开场：剑修渡劫</option><option value="forest">火点木</option><option value="water">水与冰</option><option value="lightning">雷与金</option><option value="blank">空白天地</option></select></label>
         </div>
         <div class="feedback-controls" role="group" aria-label="声音与动态">
           <button id="sound-toggle" type="button" aria-pressed="false" title="开启材料声音">声音 关</button>
@@ -37,6 +37,7 @@
       </div>
       <div class="field-wrap">
         <canvas id="field" width="1280" height="680" tabindex="0" aria-label="可画材料的二维字网格。拖动鼠标或手指绘制；方向键移动我，回车在身前写字。" aria-describedby="keyboard-help">此浏览器不支持 Canvas，请使用新版浏览器。</canvas>
+        <button id="skip-opening" class="skip-opening" type="button" hidden>跳过开场</button>
         <div id="canvas-error" class="canvas-error" hidden>画布无法启动。请使用新版浏览器后刷新。</div>
       </div>
       <div class="readout">

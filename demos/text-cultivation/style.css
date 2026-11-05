@@ -46,6 +46,9 @@ canvas{display:block;width:100%;height:clamp(330px,calc(100svh - 300px),660px);t
 canvas:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
 .canvas-error{position:absolute;inset:0;display:grid;place-content:center;padding:30px;color:#9c3326;font-size:16px;background:var(--field)}
 .canvas-error[hidden]{display:none}
+.skip-opening{position:absolute;right:14px;bottom:14px;z-index:2;min-height:32px;padding:6px 12px;font-size:12px;color:#e6d6ae;background:#0d1630b3;border-color:#8f7744;letter-spacing:.08em}
+.skip-opening:hover{background:#16244a;border-color:#c9a557;color:#fff3d6}
+.skip-opening[hidden]{display:none}
 .readout{padding:5px 0;display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:38px;font-size:11px;font-variant-numeric:tabular-nums;color:var(--soft);border-bottom:1px solid var(--line)}
 #cell-info{flex:1;text-align:center}
 #stage-status{min-width:14ch;text-align:right;color:#496438;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:26ch}

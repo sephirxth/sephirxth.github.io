@@ -1,6 +1,7 @@
 // WebGL2 renderer: indigo sutra paper (磁青纸), mineral-pigment glyphs, firelight, flames, fluids.
 // It only reads World state. Visual randomness uses Math.random(), never World.random().
-const GLYPHS = ['我', '水', '火', '木', '金', '土', '冰', '汽', '雷', '灰', '燃', '沸', '凝', '冻', '融', '熔', '铸', '熄', '霆'];
+const GLYPHS = ['我', '水', '火', '木', '金', '土', '冰', '汽', '雷', '灰', '燃', '沸', '凝', '冻', '融', '熔', '铸', '熄', '霆', '剑', '渡', '劫', '飞', '升'];
+export const GLYPH_INDEX = Object.fromEntries(GLYPHS.map((ch, i) => [ch, i]));
 const LABELS = { ignite: 10, boil: 11, condense: 12, freeze: 13, thaw: 14, melt: 15, solidify: 16, extinguish: 17, lightning: 18 };
 const ATLAS_COLS = 8, ATLAS_ROWS = 3, ATLAS_CELL = 128, SPREAD = 16;
 const PLAYER = 11;
@@ -93,12 +94,12 @@ void main(){
 }`;
 
 const SCENE_BG_FS = HEAD + `in vec2 vUV; out vec4 o;
-uniform sampler2D uPaper, uFluid, uLight; uniform vec2 uCellUV, uRes; uniform float uTime, uFlash, uMotion;
+uniform sampler2D uPaper, uFluid, uLight; uniform vec2 uCellUV, uRes; uniform float uTime, uFlash, uMotion, uStorm, uDark;
 ${NOISE}
 void main(){
   vec4 paper = texture(uPaper, vUV);
   vec3 L = texture(uLight, vUV).rgb;
-  vec3 c = paper.rgb * (1. + uFlash*1.7) + paper.rgb * L * 6.5 + L * L * .7 + L * .3;
+  vec3 c = paper.rgb * (1. - uDark*.5) * (1. + uFlash*1.7) + paper.rgb * L * 6.5 + L * L * .7 + L * .3;
   float tw = .7 + .3*sin(uTime*2.3*uMotion + hash12(floor(vUV*uRes/3.))*40.);
   c = mix(c, vec3(1.,.83,.45) * (.78 + 2.2*dot(L, vec3(.333)) + uFlash*1.6) * tw, paper.a*.92);
   vec4 f = texture(uFluid, vUV);
@@ -106,7 +107,8 @@ void main(){
   float cloud = fbm(cu*vec2(.42, .34) + vec2(t*.1, -t*.28));
   float fog = smoothstep(.05, .5, f.b*(.55 + .9*cloud));
   float lip = fog*(1. - smoothstep(.0, .5, texture(uFluid, vUV + vec2(0., uCellUV.y*.6)).b));
-  c = mix(c, vec3(.66,.74,.88) + L*.35 + lip*.12, fog*.42);
+  vec3 fogCol = mix(vec3(.66,.74,.88) + lip*.12, vec3(.15,.13,.23) + lip*.05, uStorm) + L*mix(.35, 1.1, uStorm);
+  c = mix(c, fogCol, fog*mix(.42, .8, uStorm));
   float ice = smoothstep(.46, .54, f.a);
   c = mix(c, vec3(.50,.70,.86) + L*.25, ice*.26);
   float wm = smoothstep(.44, .52, f.r);
@@ -134,12 +136,12 @@ void main(){
   o = vec4(c, 1.);
 }`;
 
-const GLYPH_VS = HEAD + `layout(location=0) in vec4 iA; layout(location=1) in vec4 iB; layout(location=2) in vec4 iC;
+const GLYPH_VS = HEAD + `layout(location=0) in vec4 iA; layout(location=1) in vec4 iB; layout(location=2) in vec4 iC; layout(location=3) in vec4 iD;
 uniform vec2 uRes, uCell; uniform float uTime, uMotion, uEmissive;
-out vec2 vUV; flat out vec4 vA; flat out vec4 vB; flat out vec4 vC;
+out vec2 vUV; flat out vec4 vA; flat out vec4 vB; flat out vec4 vC; flat out vec4 vD;
 bool glows(){
   float k = iA.z, p = iA.w;
-  if (iC.w >= 4.) return true;
+  if (iC.w >= 8. || mod(floor(iC.w/4.), 2.) >= 1.) return true;
   if (mod(iC.w, 2.) >= 1.) return false;
   if ((k > 1.5 && k < 2.5) || (k > 7.5 && k < 8.5) || (k > 9.5 && k < 10.5)) return true;
   if (abs(iB.w) > .25) return true;
@@ -151,11 +153,11 @@ bool glows(){
 void main(){
   vec2 corner = vec2(float(gl_VertexID & 1), float(gl_VertexID >> 1));
   float k = iA.z, seed = iC.x, death = iC.y, m = uMotion;
-  bool player = iC.w >= 4.;
+  bool player = mod(floor(iC.w/4.), 2.) >= 1.;
   float unit = min(uCell.x, uCell.y);
-  float scale = player ? 2.8 : 1.26;
+  float scale = (player ? 2.8 : 1.26)*iD.x;
   vec2 c = iA.xy + .5;
-  if (!player) {
+  if (!player && iC.w < 8.) {
     if (k > 1.5 && k < 2.5) { c.y -= (.04 + .04*sin(uTime*7.3 + seed*40.))*m; scale *= 1. + .05*sin(uTime*9.1 + seed*21.)*m; }
     else if (k > 6.5 && k < 7.5) { c.x += .14*sin(uTime*1.3 + seed*30.)*m; c.y += .09*cos(uTime*1.1 + seed*17.)*m; scale *= 1.12; }
     else if (k > .5 && k < 1.5) { c.y += .035*sin(uTime*2.4 + iA.x*.7 + seed*6.)*m; }
@@ -163,14 +165,15 @@ void main(){
     float b = 1. - iB.y; scale *= 1. + .32*b*b*m;
     if (death > 0. && ((k > 1.5 && k < 2.5) || (k > 6.5 && k < 8.5))) { c.y -= death*.7*m; scale *= 1. + death*.35; }
   }
-  vec2 px = c*uCell + (corner - .5)*unit*scale;
-  vUV = corner; vA = iA; vB = iB; vC = iC;
+  float r = iD.y; mat2 R = mat2(cos(r), sin(r), -sin(r), cos(r));
+  vec2 px = c*uCell + R*((corner - .5)*unit*scale);
+  vUV = corner; vA = iA; vB = iB; vC = iC; vD = iD;
   vec4 pos = vec4(px.x/uRes.x*2. - 1., 1. - px.y/uRes.y*2., 0., 1.);
   if (uEmissive > .5 && !glows()) pos = vec4(2., 2., 2., 1.);
   gl_Position = pos;
 }`;
 
-const GLYPH_FS = HEAD + `in vec2 vUV; flat in vec4 vA; flat in vec4 vB; flat in vec4 vC; out vec4 o;
+const GLYPH_FS = HEAD + `in vec2 vUV; flat in vec4 vA; flat in vec4 vB; flat in vec4 vC; flat in vec4 vD; out vec4 o;
 uniform sampler2D uAtlas, uLight; uniform vec2 uAtlasGrid, uViewport;
 uniform float uTime, uEmissive, uMotion, uFlash;
 ${NOISE}
@@ -178,7 +181,8 @@ float sdf(float idx, vec2 uv){
   vec2 cell = vec2(mod(idx, uAtlasGrid.x), floor(idx / uAtlasGrid.x));
   return texture(uAtlas, (cell + clamp(uv, .004, .996)) / uAtlasGrid).r;
 }
-float gidx(float k){ return k > 10.5 ? 0. : (k > 9.5 ? 4. : k); }
+float gOver = 0.;
+float gidx(float k){ if (gOver > .5) return gOver - 1.; return k > 10.5 ? 0. : (k > 9.5 ? 4. : k); }
 float ink(float d, float bias, float aa){ return smoothstep(.5 - aa, .5 + aa, d + bias); }
 vec3 E;  // emission accumulated by shade()
 vec4 shade(float k, vec2 uv, float bias, float seed, float temp, float charge, float fuel){
@@ -274,7 +278,20 @@ void main(){
   float temp = vB.z, charge = vB.w, seed = vC.x, death = vC.y, fuel = vC.z, flags = vC.w;
   vec2 uv = vUV;
   vec3 L = texture(uLight, gl_FragCoord.xy / uViewport).rgb;
-  if (flags >= 4.) {
+  gOver = vD.w;
+  if (flags >= 8.) {
+    // Calligraphic caption: cream ink with a soft halo; kind picks the tint.
+    float d = sdf(gidx(k), uv);
+    float aa = max(fwidth(d)*.8, .004);
+    float birth = 1. - bt;
+    float a = ink(d, -.24*birth*birth + (vnoise(uv*7. + seed*13.) - .5)*.04, aa)*smoothstep(0., .3, bt);
+    vec3 col = k > 7.5 && k < 8.5 ? vec3(.90,.84,1.) : (k > 3.5 && k < 4.5 ? vec3(1.,.86,.52) : vec3(.98,.90,.72));
+    vec3 halo = k > 7.5 && k < 8.5 ? vec3(.55,.4,1.) : vec3(1.,.72,.35);
+    if (uEmissive > .5) o = vec4(halo*(a*.45 + smoothstep(.12, .5, d)*.3)*vD.z*smoothstep(0., .5, bt), 1.);
+    else o = vec4(col + L*.3, a*vD.z);
+    return;
+  }
+  if (mod(floor(flags/4.), 2.) >= 1.) {
     vec2 sp = (uv - .5)*2.8/1.3 + .5;
     vec2 q = abs(sp - .5)*2.;
     float sq = max(q.x, q.y);
@@ -344,6 +361,7 @@ void main(){
     if (erased) cur.rgb = mix(cur.rgb, vec3(.55,.62,.75), .4);
   }
   if (mod(flags, 2.) >= 1.) { cur.a *= .34; emis = vec3(0.); }
+  cur.a *= vD.z; emis *= vD.z;
   if (uEmissive > .5) { o = vec4(emis, 1.); return; }
   vec3 lit = cur.rgb + cur.rgb*L*1.35 + L*.08 + cur.rgb*uFlash*.8;
   o = vec4(lit, cur.a);
@@ -481,7 +499,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   const partLimit = mobile ? 420 : 900;
   let motion = true, clock = 0, flash = 0, shake = 0, quality = mobile ? .55 : 1;
   let atlasReady = false, atlasFont = '', sizeKey = '', paperKey = '';
-  let resetPending = true, introAt = -10, serial = 0, arcsAt = 0, eventBudget = 0;
+  let resetPending = true, introAt = -10, serial = 0, arcsAt = 0, eventBudget = 0, stage = null;
   const recs = new Map(), ghosts = [], parts = [], bolts = [], trail = [];
   const erasedCells = new Set(), labelAt = {};
   const person = { x: 0, y: 0, ready: false };
@@ -553,7 +571,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     up: program(FULL_VS, UP_FS), composite: program(FULL_VS, COMPOSITE_FS),
   };
   const emptyVao = gl.createVertexArray();
-  const glyphs = instanced([4, 4, 4], world.size + 900);
+  const glyphs = instanced([4, 4, 4, 4], world.size + 900);
   const fluids = instanced([4, 1], world.size);
   const partsUnder = instanced([4, 4, 4], partLimit), partsOver = instanced([4, 4, 4], partLimit), partsAdd = instanced([4, 4, 4], partLimit);
   const ribbonVao = gl.createVertexArray(), ribbonBuffer = gl.createBuffer();
@@ -692,21 +710,32 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     add({ type: kinds.glyph, glyph: LABELS[type], layer: 'add', x: x + .5, y: y - .2, vy: -1.1, drag: .6, s: .62, life: 1.25, col: LABEL_COLOR[type] || [1, 1, 1], a: .95, fadeIn: .12 });
   }
 
+  const path = (a, b, depth, spread) => {
+    if (depth === 0) return [a, b];
+    const mx = (a.x + b.x) / 2 + rand(-spread, spread), my = (a.y + b.y) / 2 + rand(-spread * .3, spread * .3);
+    const mid = { x: mx, y: my };
+    return [...path(a, mid, depth - 1, spread * .55).slice(0, -1), ...path(mid, b, depth - 1, spread * .55)];
+  };
+  function boltList(start, end, { width = .26, life = .62, spread = 2.4, branches = .4 } = {}) {
+    const main = path(start, end, 6, spread);
+    const list = [{ pts: main, width, col: [.72, .62, 1], life }];
+    for (let i = 3; i < main.length - 3; i += 3) {
+      if (Math.random() > branches) continue;
+      const p = main[i], len = rand(2, 5) * width / .26, ang = rand(.3, 1.2) * (Math.random() < .5 ? -1 : 1);
+      list.push({ pts: path(p, { x: p.x + Math.sin(ang) * len, y: p.y + Math.cos(ang) * len * .8 }, 4, 1.1), width: width * .46, col: [.64, .52, 1], life: life * .68 });
+    }
+    return list;
+  }
+  // A scripted strike between any two points (cells), used by the opening.
+  function strike(start, end, { width = .26, life = .62, flashAmount = .6, shakeAmount = .2, sparks = 14, spread = 2.4 } = {}) {
+    for (const b of boltList(start, end, { width, life, spread })) bolts.push({ ...b, age: 0, flicker: true });
+    flash = Math.max(flash, motion ? flashAmount : Math.min(.3, flashAmount));
+    if (motion) shake = Math.max(shake, shakeAmount);
+    burst(mobile ? Math.ceil(sparks / 2) : sparks, () => spark(end.x, end.y, [.88, .8, 1], 1.3 * Math.sqrt(width / .26)));
+  }
   function bolt(x, y) {
     const start = { x: x + .5 + rand(-3, 3), y: -1.2 }, end = { x: x + .5, y: y + .5 };
-    const path = (a, b, depth, spread) => {
-      if (depth === 0) return [a, b];
-      const mx = (a.x + b.x) / 2 + rand(-spread, spread), my = (a.y + b.y) / 2 + rand(-spread * .3, spread * .3);
-      const mid = { x: mx, y: my };
-      return [...path(a, mid, depth - 1, spread * .55).slice(0, -1), ...path(mid, b, depth - 1, spread * .55)];
-    };
-    const main = path(start, end, 6, 2.4);
-    const list = [{ pts: main, width: .26, col: [.72, .62, 1], life: .62 }];
-    for (let i = 3; i < main.length - 3; i += 3) {
-      if (Math.random() > .4) continue;
-      const p = main[i], len = rand(2, 5), ang = rand(.3, 1.2) * (Math.random() < .5 ? -1 : 1);
-      list.push({ pts: path(p, { x: p.x + Math.sin(ang) * len, y: p.y + Math.cos(ang) * len * .8 }, 4, 1.1), width: .12, col: [.64, .52, 1], life: .42 });
-    }
+    const list = boltList(start, end);
     // Discharge into adjacent conductors only, following the same rule as the simulation.
     const visited = new Set(), queue = [];
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
@@ -796,7 +825,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     }
     for (let n = bolts.length - 1; n >= 0; n--) { bolts[n].age += dt; if (bolts[n].age >= bolts[n].life) bolts.splice(n, 1); }
     for (let n = ghosts.length - 1; n >= 0; n--) if (clock - ghosts[n].at > .5) ghosts.splice(n, 1);
-    while (trail.length && clock - trail[0].t > 1.1) trail.shift();
+    while (trail.length && clock - trail[0].t > (trail[0].life ?? 1.1)) trail.shift();
     if (!motion || paused) return;
     // Ambient emitters scale with the number of live particles.
     const room = 1 - parts.length / (partLimit * 2.4);
@@ -831,7 +860,32 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   }
 
   // ---------- drawing ----------
+  function stageLight() {
+    const d = cellData; d.fill(0);
+    const addAt = (cx, cy, r, g, b, heat = 0) => {
+      if (cx < 0 || cx >= W || cy < 0 || cy >= H) return;
+      const o = (cy * W + cx) * 4;
+      d[o] = Math.min(255, d[o] + r * 255); d[o + 1] = Math.min(255, d[o + 1] + g * 255); d[o + 2] = Math.min(255, d[o + 2] + b * 255); d[o + 3] = Math.min(255, d[o + 3] + heat * 255);
+    };
+    const u = stage.unit ?? 1;
+    for (const a of stage.actors) {
+      const al = a.a ?? 1, cx = Math.round(a.x * u - .5), cy = Math.round(a.y * u - .5);
+      if (a.light) addAt(cx, cy, a.light[0] * al, a.light[1] * al, a.light[2] * al, a.heat ?? 0);
+      else if (a.k === K.FIRE) addAt(cx, cy, .8 * al, .4 * al, .13 * al, .8 * al);
+      else if (a.k === K.LIGHTNING && !(a.flags >= 8)) addAt(cx, cy, .6 * al, .55 * al, .9 * al);
+    }
+    for (const l of stage.lights || []) {
+      const lx = l.x * u, ly = l.y * u, rad = Math.max(1, (l.r ?? 2) * u), x0 = Math.floor(lx - rad), x1 = Math.ceil(lx + rad), y0 = Math.floor(ly - rad), y1 = Math.ceil(ly + rad);
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const f = Math.max(0, 1 - Math.hypot(x + .5 - lx, y + .5 - ly) / rad);
+        if (f > 0) addAt(x, y, l.col[0] * f, l.col[1] * f, l.col[2] * f);
+      }
+    }
+    gl.bindTexture(gl.TEXTURE_2D, cellTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, d);
+  }
   function cellLight() {
+    if (stage) { stageLight(); return; }
     const d = cellData, kind = world.kind, temp = world.temp, charge = world.charge, fuel = world.fuel;
     for (let i = 0; i < world.size; i++) {
       const k = kind[i]; let r = 0, g = 0, b = 0, heat = 0;
@@ -872,14 +926,31 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   function buildInstances(alpha, state) {
     const now = clock, kind = world.kind, temp = world.temp, charge = world.charge, fuel = world.fuel;
     let g = glyphs.data, n = 0;
-    const put = (x, y, k, prev, tt, bt, t, q, seed, death, f, flags) => {
+    const put = (x, y, k, prev, tt, bt, t, q, seed, death, f, flags, sc = 1, rot = 0, al = 1, glyph = 0) => {
       if (n >= glyphs.max) return;
-      const o = n++ * 12;
+      const o = n++ * 16;
       g[o] = x; g[o + 1] = y; g[o + 2] = k; g[o + 3] = prev; g[o + 4] = tt; g[o + 5] = bt; g[o + 6] = t; g[o + 7] = q; g[o + 8] = seed; g[o + 9] = death; g[o + 10] = f; g[o + 11] = flags;
+      g[o + 12] = sc; g[o + 13] = rot; g[o + 14] = al; g[o + 15] = glyph;
     };
     const fd = fluids.data; let nf = 0;
     fireData.fill(0); fireCount = 0;
-    for (const r of recs.values()) {
+    if (stage) {
+      // Scripted actors replace the world: free positions, sizes, rotation and alpha.
+      const u = stage.unit ?? 1;
+      for (const a of stage.actors) {
+        const al = a.a ?? 1; if (al < .003) continue;
+        const k = a.k, sc = (a.s ?? 1) * u, ax = a.x * u, ay = a.y * u;
+        put(ax - .5, ay - .5, k, 0, 1, a.bt ?? 1, a.temp ?? 290, a.charge ?? 0, a.seed ?? .5, 0, a.fuel ?? 0, a.flags ?? 0, sc, a.r ?? 0, al, a.g === undefined ? 0 : a.g + 1);
+        if ((k === K.WATER || k === K.MOLTEN || k === K.STEAM || k === K.ICE) && nf < fluids.max && !(a.flags >= 8)) {
+          const o = nf++ * 5, ch = k === K.WATER ? 0 : k === K.MOLTEN ? 1 : k === K.STEAM ? 2 : 3;
+          fd[o] = ax - .5; fd[o + 1] = ay - .5; fd[o + 2] = ch; fd[o + 3] = (k === K.STEAM ? .42 : .72) * al * (a.fog ?? 1); fd[o + 4] = (k === K.STEAM ? 1.7 : 1.1) * sc;
+        }
+        if (k === K.FIRE) {
+          const cx = Math.round(ax - .5), cy = Math.round(ay - .5);
+          if (cx >= 0 && cx < W && cy >= 0 && cy < H) { fireCount++; fireData[(cy * W + cx) * 4] = Math.max(fireData[(cy * W + cx) * 4], 255 * clamp(al, 0, 1)); }
+        }
+      }
+    } else for (const r of recs.values()) {
       if (now < r.bornAt) continue;
       const i = r.i, k = kind[i];
       if (k !== r.kind) continue;
@@ -894,10 +965,12 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       }
       if (k === K.FIRE) { fireCount++; fireData[i * 4] = 255 * clamp(.6 + fuel[i] * .1, .6, 1) * (r.prev === K.WOOD ? clamp(tt * 1.6, 0, 1) : 1) * Math.min(1, bt * 2); }
     }
-    for (const gh of ghosts) put(gh.x, gh.y, gh.kind, 0, 1, 1, 290, 0, gh.seed, clamp((now - gh.at) / .5, .001, 1), 0, gh.erased ? 2 : 0);
-    const { cursor, selected } = state;
-    if (cursor && !cursor.drawing && (cursor.kind ?? selected)) put(cursor.x, cursor.y, cursor.kind ?? selected, 0, 1, 1, 290, 0, .5, 0, 0, 1);
-    put(person.x, person.y, PLAYER, 0, 1, 1, 290, 0, .3, 0, 0, 4);
+    if (!stage) {
+      for (const gh of ghosts) put(gh.x, gh.y, gh.kind, 0, 1, 1, 290, 0, gh.seed, clamp((now - gh.at) / .5, .001, 1), 0, gh.erased ? 2 : 0);
+      const { cursor, selected } = state;
+      if (cursor && !cursor.drawing && (cursor.kind ?? selected)) put(cursor.x, cursor.y, cursor.kind ?? selected, 0, 1, 1, 290, 0, .5, 0, 0, 1);
+      put(person.x, person.y, PLAYER, 0, 1, 1, 290, 0, .3, 0, 0, 4);
+    }
     glyphs.n = n; fluids.n = nf;
     // particles
     const lists = { under: partsUnder, over: partsOver, add: partsAdd };
@@ -940,9 +1013,10 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       if (b.flicker && motion) I *= t < .08 ? 1 : t < .13 ? .25 : t < .2 ? .9 : 1 - t * .6;
       pushRibbon(b.pts, b.width, b.col, () => I, 0);
     }
+    if (stage?.ribbons) { const u = stage.unit ?? 1; for (const rb of stage.ribbons) pushRibbon(rb.pts.map(q => ({ x: q.x * u, y: q.y * u })), rb.width * u, rb.col, () => rb.a ?? 1, 0); }
     const boltVerts = ribbonCount;
     for (const s of trail) {
-      const t = (now - s.t) / 1.1;
+      const t = clamp((now - s.t) / (s.life ?? 1.1), 0, 1);
       const col = PIGMENT[s.kind] || [.6, .68, .82];
       pushRibbon([{ x: s.x0, y: s.y0 }, { x: s.x1, y: s.y1 }], s.w, s.kind ? col : [.45, .55, .72], () => .3 * (1 - t) * (1 - t), 1);
     }
@@ -985,7 +1059,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     // scene
     bind(scene); blend(false);
     let u = use(prog.bg, { uPaper: paperTex.tex, uFluid: fluid.tex, uLight: lightTex });
-    common(u); gl.uniform2f(u.uCellUV, 1 / W, 1 / H); fullscreen();
+    common(u); gl.uniform2f(u.uCellUV, 1 / W, 1 / H); gl.uniform1f(u.uStorm, stage?.storm ?? 0); gl.uniform1f(u.uDark, stage?.dark ?? 0); fullscreen();
     blend('alpha');
     const drawParts = (batch, additive) => {
       if (!upload(batch)) return;
@@ -997,7 +1071,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     drawParts(partsOver, false);
     uploadRibbons();
     if (ribbonCount > boltVerts) { u = use(prog.ribbon); common(u); drawRibbons(boltVerts, ribbonCount - boltVerts); }
-    if (state.cursor) {
+    if (state.cursor && !stage) {
       const { cursor, brush = 0, selected } = state, k = cursor.kind ?? selected;
       const pad = .08, x0 = (cursor.x - brush - pad) * cw, y0 = (cursor.y - brush - pad) * ch, x1 = (cursor.x + brush + 1 + pad) * cw, y1 = (cursor.y + brush + 1 + pad) * ch;
       u = use(prog.box); common(u);
@@ -1036,7 +1110,18 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     emit, update, render, sync,
     setMotion(value) { motion = Boolean(value); shake = 0; if (!motion) parts.length = 0; },
     invalidate() { sizeKey = ''; if (fontLoaded() !== atlasFont) atlasReady = false; },
-    get active() { return parts.length > 0 || bolts.length > 0 || ghosts.length > 0 || trail.length > 0 || flash > 0 || personMoving; },
+    get active() { return Boolean(stage) || parts.length > 0 || bolts.length > 0 || ghosts.length > 0 || trail.length > 0 || flash > 0 || personMoving; },
+    // The opening drives the renderer through a stage of actors and these effects.
+    setStage(value) { stage = value || null; },
+    fx: {
+      strike, add, burst,
+      ember, spark, glint, smoke, steamPuff, drop, shard,
+      trail(x0, y0, x1, y1, kind, w = .3, life = 1.1) { trail.push({ x0, y0, x1, y1, kind, t: clock, w, life }); if (trail.length > 200) trail.shift(); },
+      flash(v) { flash = Math.max(flash, motion ? v : Math.min(.3, v)); },
+      shake(v) { if (motion) shake = Math.max(shake, v); },
+      clear() { parts.length = 0; bolts.length = 0; trail.length = 0; flash = 0; shake = 0; },
+      kinds,
+    },
     get count() { return parts.length; },
     get time() { return clock; },
   };

@@ -2,7 +2,7 @@ Cultivation glyph subset (BrushKai)
 
 Source: Ma Shan Zheng (马善政毛笔楷书), via the Google Fonts subsetting API
 https://github.com/googlefonts/mashanzheng
-Glyph coverage: 水火木金土冰汽雷灰我文字修仙燃沸凝冻融熔铸熄霆擦除写一片天地
+Glyph coverage: 水火木金土冰汽雷灰我文字修仙燃沸凝冻融熔铸熄霆擦除写一片天地剑渡劫飞升
 
 -----------------------------------------------------------
 Copyright 2018 The Ma Shan Zheng Project Authors (https://github.com/googlefonts/mashanzheng)
