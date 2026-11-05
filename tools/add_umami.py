@@ -13,7 +13,7 @@ Usage:
                default sephirxth.github.io, pass --domains "" to leave it out
 
 Written after tools/add_cf_beacon.py in the site repo: skips redirect-only pages (meta refresh),
-.git and tools/; inserts right before </body>; idempotent: an existing block between the markers
+.git, tools/, and standalone demos/; inserts right before </body>; idempotent: an existing block between the markers
 is replaced, so rerunning with a new ID/URL just swaps it. Line endings are kept as they are.
 """
 import pathlib, re, sys
@@ -74,7 +74,7 @@ def main():
     changed, skipped, unchanged, nobody = [], 0, 0, []
     for p in sorted(root.rglob("*.html")):
         rel = p.relative_to(root)
-        if ".git" in rel.parts or "tools" in rel.parts:
+        if ".git" in rel.parts or "tools" in rel.parts or rel.parts[0] == "demos":
             continue
         with open(p, encoding="utf-8", newline="") as f:
             s = f.read()

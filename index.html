@@ -54,13 +54,8 @@
         <div class="items">
           <article class="item lead-out">
             <h3><span><a href="/projects/text-cultivation/">文字修仙</a></span></h3>
-            <p>一个用汉字当材料的游戏。你选一个字写进世界（水、火、木、金这些），看它们自己烧起来、化开、长出东西。山、林、剑规则里没有，我希望玩家自己认出来，这一点还没有真人验证过。开发记录到第 11 版，想找几个人试玩。</p>
-            <p class="by">文字游戏，2026</p>
-          </article>
-          <article class="item">
-            <h3><span><a href="/projects/cozy-apocalypse/">末日港湾</a></span></h3>
-            <p>用 Godot 做的 3D 末日生存建造。白天拾荒，黄昏修设施，夜里在篝火边和镇民说话。开场、结局、结局后自由经营都有代码，完整通关还没验证过。镇民各有一套对世界的判断，看到的事会慢慢改变它，每天做什么也按判断打分抽出来。</p>
-            <p class="by">Cozy Apocalypse AI Haven，2026</p>
+            <p>用汉字表示材料的游戏。选水、火、木、金写进格子，看它们流动、燃烧、融化。元胞实验版已开放网页试玩。</p>
+            <p class="by">文字游戏，2026 · <a href="https://sephirxth-text-cultivation.vercel.app/">在线试玩</a></p>
           </article>
           <article class="item">
             <h3><span><a href="/projects/self-running-worlds/">会自己运转的世界</a></span></h3>
@@ -74,10 +69,11 @@
           </article>
         </div>
         <figure class="plate">
-          <img class="px" src="/assets/img/plate-rule110.png" width="400" height="300" alt="规则 110 元胞自动机的演化图">
+          <img id="rule110" class="px" src="/assets/img/plate-rule110.png" data-static="/assets/img/plate-rule110.png" data-animated="/assets/img/plate-rule110.gif" width="400" height="300" alt="规则 110 元胞自动机随时间演化的时空图">
           <figcaption>
             <p class="cap">RULE 110</p>
-            <p class="note">每个格子只看左右两个邻居，按八条规则更新，图里的结构是这样跑出来的。</p>
+            <button id="rule110-toggle" class="motion-toggle" type="button" aria-controls="rule110" data-pause="暂停动画" data-play="播放动画" hidden>播放动画</button>
+            <p class="note">每个格子根据自身和左右邻居的状态，按规则 110 更新。动画每帧向前推进一代。</p>
           </figcaption>
         </figure>
       </div>
@@ -114,29 +110,30 @@
   <section class="band">
     <div class="gut"><span>RESEARCH</span></div>
     <div class="body">
+      <p class="research-links"><a href="https://scholar.google.com/citations?user=PFQ2aX8AAAAJ">Google Scholar</a></p>
       <div class="row">
         <div class="items">
-          <article class="item lead-out">
-            <h3><span><a href="/projects/one-lane/">一条车道，两个方向</a></span></h3>
-            <p>山区施工便道只有一条车道，两个方向的车得靠错车点会车（学名叫长距离单车道双向通行）。我们用感知加信号灯，让对向的车队只在错车点碰上。这套系统已经在高速公路施工现场用了。</p>
-            <p class="by">2024 至今</p>
-          </article>
           <article class="item">
-            <h3><span><a href="/projects/lane-change/">换道里的涌现</a></span></h3>
-            <p>读博时候的问题。每辆车都按对自己最好的方式换道，整条路反而变慢了，为什么，怎么纠正。现在在看那些少见但影响很大的换道是怎么发生的。</p>
+            <h3><span><a href="/projects/lane-change/">人工驾驶与自动驾驶车辆的集群涌现</a></span></h3>
+            <p>研究人工驾驶与自动驾驶车辆的微观交互如何形成交通流的集体行为，关注换道博弈、个体收益与整体交通效率之间的关系，以及长尾换道场景的行为特征。</p>
             <p class="by">2016 至今</p>
           </article>
           <article class="item">
-            <h3><span><a href="/projects/tests-vs-models/">通过测试，不等于建对了</a></span></h3>
-            <p>让大模型把一段文字描述的调度问题建成优化模型，然后检查它到底建对了没有。通过了测试的程序，换一批数字可能就错了。</p>
+            <h3><span><a href="/projects/one-lane/">长距离单车道双向交通的智能管控</a></span></h3>
+            <p>面向山区施工便道，研究基于车辆检测与信号控制的对向车队协调通行。团队开发的管控系统已在高速公路施工现场应用。</p>
+            <p class="by">2024 至今</p>
+          </article>
+          <article class="item">
+            <h3><span><a href="/projects/tests-vs-models/">大语言模型生成优化模型的正确性评测</a></span></h3>
+            <p>研究大语言模型将文本调度问题转化为优化模型时的正确性评测，区分有限算例上的答案一致性与模型正确性，并考察数值测试范围对建模错误识别的影响。</p>
             <p class="by">2026，论文工作稿</p>
           </article>
         </div>
         <figure class="plate">
           <img class="px" src="/assets/img/plate-timespace.png" width="400" height="300" alt="单车道双向通行的时空图">
           <figcaption>
-            <p class="cap">TIME–SPACE DIAGRAM</p>
-            <p class="note">时间向右，位置向上，实线上行，虚线下行。两个方向的车队只在错车点（带点的横带）相遇。</p>
+            <p class="cap">SINGLE-LANE TWO-WAY TRAFFIC</p>
+            <p class="note">长距离单车道双向交通的时空示意。时间向右，位置向上；实线表示上行，虚线表示下行，点状横带表示错车点。对向车队在错车点会车。</p>
           </figcaption>
         </figure>
       </div>
@@ -172,5 +169,6 @@
 </script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a5f31fd19bf14dda997cec8c57718059"}'></script><!-- End Cloudflare Web Analytics -->
 <!-- Umami --><script defer src="https://aws-ec2-oregon.tail17a64.ts.net/glyph.js" data-website-id="5b204497-f89b-4179-a471-cdeef73fc96f" data-host-url="https://aws-ec2-oregon.tail17a64.ts.net" data-domains="sephirxth.github.io"></script><!-- End Umami -->
+<script defer src="/assets/js/rule110.js"></script>
 </body>
 </html>

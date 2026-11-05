@@ -35,14 +35,18 @@
   <article class="proj">
     <header>
       <h1>Text Cultivation</h1>
-      <p class="lede">A game prototype where matter is written as Chinese characters. The player moves "me" (我) around and writes materials into the scene. The dev log is at version 11, and no real player has tried it yet.</p>
+      <p class="lede">A game prototype where matter is written as Chinese characters. The player moves "me" (我) around and writes materials into the scene. The original prototype is documented through version 11 and has not yet had a human playtest. A separate cellular automaton experiment is now available online.</p>
       <dl class="facts">
         <dt>TYPE</dt><dd>A game prototype where matter is written as Chinese characters</dd>
-        <dt>STATUS</dt><dd>Logged up to version 11, no real playtest yet</dd>
+        <dt>STATUS</dt><dd>Original prototype documented through v11, no human playtest yet; <a href="https://sephirxth-text-cultivation.vercel.app/">play the cellular automaton experiment</a></dd>
         <dt>WHEN</dt><dd>2026</dd>
         <dt>BUILT WITH</dt><dd>Written in Rust, runs on Bevy, glyphs rendered from an atlas</dd>
       </dl>
     </header>
+
+    <h2>Online cellular automaton experiment</h2>
+    <p>This browser experiment rewrites the material rules on a grid. Place water, fire, wood, and metal to observe their local interactions. It does not port the full prototype and does not include genesis, dujie, or death mechanics. The sections below describe the original prototype and its development record.</p>
+    <p><a href="https://sephirxth-text-cultivation.vercel.app/">Play the cellular automaton experiment</a></p>
 
     <h2>Pick a material, then write</h2>
     <p>I'll start with dujie (渡劫). The arrow keys or WASD move "me" (我), number keys 1-4 pick water, fire, metal, or wood, and holding or dragging the left mouse button writes the material into the scene. You can't just type other characters. Each character costs 1 lingqi (灵力), the pool caps at 180 and refills 12 points per second, so writing nonstop from a full pool empties it in about 10 seconds.</p>
@@ -86,14 +90,14 @@
     <ul>
       <li>"Mountain" (山), "forest" (林), and "sword" (剑) are not in the material list. "Players will recognize them on their own" is still just a design idea, never checked with a real playtest. The genesis UI also displays names like "fungus film" (菌膜) and "moss clump" (苔丛) by count, so naming isn't entirely left to the player.</li>
       <li>Dujie records the cause of death, freezes for 2.4 real seconds, then rebuilds the whole world. The daodian (道典) doesn't save the scene after death. There is no formal completion goal or win state yet.</li>
-      <li>Version 11 has a Windows build, but the web version is still at v8.3.</li>
+      <li>Version 11 of the original prototype has a Windows build, and its early web build was v8.3. A separate <a href="https://sephirxth-text-cultivation.vercel.app/">cellular automaton experiment is now playable online</a>.</li>
       <li>Automated experiments can check the physics relations. Whether a real player can read why things happen, and whether the pacing of lingqi and of lightning and fire feels right, still waits for playtesting.</li>
     </ul>
   </article>
 
   <nav class="pager">
     <span><a href="/en/">← Home</a></span>
-    <span><a href="/en/projects/cozy-apocalypse/">Cozy Apocalypse AI Haven →</a></span>
+    <span><a href="/en/projects/self-running-worlds/">Worlds that run themselves →</a></span>
   </nav>
 
   <footer class="foot">

@@ -6,8 +6,8 @@ Usage: make_sitemap.py <site-root> [--dry-run]
   <site-root> must be the top of the git repo (lastmod comes from git, so a copy without .git
   will not do).
 
-Which pages: every *.html outside .git and tools/, except redirect-only pages (meta refresh: the
-old addresses) and 404.html. x/index.html is listed as https://sephirxth.github.io/x/ ; other
+Which pages: every *.html outside .git, tools/, and standalone demos/, except redirect-only pages (meta refresh: the
+old addresses), 404.html, and explicitly withdrawn project pages. x/index.html is listed as https://sephirxth.github.io/x/ ; other
 files keep their name. Paths are percent-encoded as UTF-8 (Chinese titles, spaces, full-width
 punctuation), sorted by path.
 
@@ -22,7 +22,7 @@ from urllib.parse import quote
 from xml.sax.saxutils import escape
 
 BASE = "https://sephirxth.github.io"
-EXCLUDE = {"404.html"}  # paths relative to the site root
+EXCLUDE = {"404.html", "projects/cozy-apocalypse/index.html", "en/projects/cozy-apocalypse/index.html"}  # paths relative to the site root
 REDIRECT_RE = re.compile(r'http-equiv=["\']?refresh', re.I)
 
 
@@ -66,7 +66,7 @@ def main():
     pages, redirects, excluded = [], 0, []
     for p in sorted(root.rglob("*.html")):
         rel = pathlib.PurePosixPath(p.relative_to(root).as_posix())
-        if ".git" in rel.parts or "tools" in rel.parts:
+        if ".git" in rel.parts or "tools" in rel.parts or rel.parts[0] == "demos":
             continue
         if rel.as_posix() in EXCLUDE:
             excluded.append(rel.as_posix())

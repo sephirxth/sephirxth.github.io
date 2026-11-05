@@ -107,7 +107,13 @@ img { max-width: 100%; }
 .plate { border-left: 1px solid var(--hair); border-bottom: 1px solid var(--hair); padding: 0 0 16px 16px; margin: 14px 0 0; align-self: start; }
 .plate img { width: 100%; }
 .plate .cap { font-family: var(--caps); font-size: 16px; letter-spacing: .07em; line-height: 1.3; margin: 12px 0 4px; }
+.motion-toggle { display: block; min-height: 44px; margin: 4px 0; padding: 8px 0; border: 0; background: none; color: var(--soft); font: 12px var(--ui); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.motion-toggle[hidden] { display: none; }
+.motion-toggle:hover { color: var(--ink); }
+.motion-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .plate .note { font-family: var(--ui); font-size: 12px; line-height: 1.6; color: var(--soft); margin: 0; }
+
+.research-links { margin: 0 0 24px; font-family: var(--ui); font-size: 13px; }
 
 /* ---------- list of writing ---------- */
 .log { list-style: none; margin: 0; padding: 0; max-width: 620px; }

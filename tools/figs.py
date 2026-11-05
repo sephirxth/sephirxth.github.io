@@ -80,7 +80,7 @@ def one_lane_plan(lang):
         s.line(x2, bot + 40, x2, bot + 52, FAINT)
         s.label((x1 + x2) / 2, bot + 68, T(lang, "单车道区间", "SINGLE LANE"), "middle")
     y = 270
-    items = [("up", T(lang, "上行车队", "convoy going up")), ("down", T(lang, "下行车队", "convoy going down")),
+    items = [("up", T(lang, "上行车队", "uphill platoon")), ("down", T(lang, "下行车队", "downhill platoon")),
              ("stop", T(lang, "停", "stop")), ("go", T(lang, "行", "go")), ("det", T(lang, "检测断面", "detector"))]
     x = 40
     for kind, word in items:
@@ -99,10 +99,10 @@ def one_lane_plan(lang):
 
 @fig("lane-change-wave")
 def lane_change_wave(lang):
-    s = Svg(338, title=T(lang, "一次换道引起的减速往后传", "One lane change and the slowdown that travels back"))
+    s = Svg(338, title=T(lang, "换道扰动向上游传播", "Upstream propagation of a lane-changing disturbance"))
     x0, x1 = 120, 852
     rows = [56, 152, 248]
-    names = [T(lang, "换道之前", "BEFORE"), T(lang, "换进空当", "INTO THE GAP"), T(lang, "几秒之后", "SECONDS LATER")]
+    names = [T(lang, "换道之前", "BEFORE"), T(lang, "换道过程", "LANE CHANGE"), T(lang, "几秒之后", "SECONDS LATER")]
     # car positions (x of rear end) per row: (slow lane, fast lane, marked car lane/pos)
     slow = [[640, 596, 508, 464, 420, 330, 240, 150], [668, 624, 500, 456, 412, 322, 232, 142], [700, 656, 520, 476, 432, 342, 252, 162]]
     fast = [[760, 668, 576, 484, 392, 300, 208], [800, 708, 616, 500, 408, 316, 224], [822, 740, 660, 560, 520, 482, 446, 380, 290, 196]]
@@ -122,14 +122,14 @@ def lane_change_wave(lang):
     # annotations
     s.arrow(563, rows[0] + 20, 563, rows[0] + 40)
     s.text(712 + 23, rows[0] - 8, T(lang, "慢车", "slow truck"), "t-small t-soft", "middle")
-    s.text(563, rows[0] - 8, T(lang, "想换道的车", "the car that wants out"), "t-small t-soft", "middle")
-    s.text(511, rows[1] + 62, T(lang, "后车被迫刹车", "the car behind has to brake"), "t-small", "middle")
+    s.text(563, rows[0] - 8, T(lang, "换道车辆", "lane-changing vehicle"), "t-small t-soft", "middle")
+    s.text(511, rows[1] + 62, T(lang, "后车制动响应", "following-vehicle braking response"), "t-small", "middle")
     s.line(511, rows[1] + 40, 511, rows[1] + 50, FAINT)
     x_a, x_b = 446, 582
     s.line(x_a, rows[2] + 52, x_b, rows[2] + 52, INK)
     s.line(x_a, rows[2] + 46, x_a, rows[2] + 58, INK)
     s.line(x_b, rows[2] + 46, x_b, rows[2] + 58, INK)
-    s.text((x_a + x_b) / 2, rows[2] + 72, T(lang, "挤成一串，减速继续往后传", "bunched up, and the slowdown keeps moving back"), "t-small", "middle")
+    s.text((x_a + x_b) / 2, rows[2] + 72, T(lang, "局部车辆聚集与减速扰动传播", "local clustering and upstream disturbance propagation"), "t-small", "middle")
     s.arrow(430, rows[2] + 52, 372, rows[2] + 52)
     s.arrow(820, 24, 852, 24)
     s.text(812, 28, T(lang, "行驶方向", "direction of travel"), "t-small t-soft", "end")
@@ -140,18 +140,18 @@ def lane_change_wave(lang):
 
 @fig("tests-vs-model")
 def tests_vs_model(lang):
-    s = Svg(316, title=T(lang, "通过测试和建对模型不是一回事", "Passing the tests and building the right model are different things"))
+    s = Svg(316, title=T(lang, "数值一致性与模型正确性", "Numerical agreement and model correctness"))
     y = 36
-    s.box(40, y, 190, 64, T(lang, "一段文字", "A paragraph"), T(lang, "描述一个调度问题", "describing a scheduling problem"))
+    s.box(40, y, 190, 64, T(lang, "文本描述", "Text specification"), T(lang, "描述一个调度问题", "describing a scheduling problem"))
     s.arrow(230, y + 32, 270, y + 32)
-    s.box(270, y, 130, 64, T(lang, "大模型", "LLM"), T(lang, "读题，建模", "reads it, models it"), shade=25)
+    s.box(270, y, 130, 64, T(lang, "大语言模型", "LLM"), T(lang, "解析与建模", "parsing and formulation"), shade=25)
     s.arrow(400, y + 32, 440, y + 32)
     s.box(440, y, 216, 64, T(lang, "优化模型", "Optimization model"), T(lang, "变量、约束、目标", "variables, constraints, objective"))
     s.arrow(548, y + 64, 548, 160)
     ya, yb = 172, 244
     s.box(440, 160, 216, 128, T(lang, "求解", "Solve"))
-    s.box(170, ya, 230, 44, T(lang, "测试里的那组数", "The numbers in the test"), tcls="t-small")
-    s.box(170, yb, 230, 44, T(lang, "换一批数，题目不变", "New numbers, same problem"), tcls="t-small")
+    s.box(170, ya, 230, 44, T(lang, "测试数值实例", "Test instance"), tcls="t-small")
+    s.box(170, yb, 230, 44, T(lang, "同一问题的另一数值实例", "New instance, same problem"), tcls="t-small")
     s.arrow(400, ya + 22, 440, ya + 22)
     s.arrow(400, yb + 22, 440, yb + 22)
     s.arrow(656, ya + 22, 696, ya + 22)
@@ -159,8 +159,8 @@ def tests_vs_model(lang):
     s.path([(708, ya + 23), (718, ya + 33), (736, ya + 11)], width=2)            # a tick
     s.path([(710, yb + 12), (734, yb + 34)], width=2)                            # a cross
     s.path([(734, yb + 12), (710, yb + 34)], width=2)
-    s.text(750, ya + 27, T(lang, "答案对上了", "answer matches"), "t-small")
-    s.text(750, yb + 27, T(lang, "答案错了", "wrong answer"), "t-small")
+    s.text(750, ya + 27, T(lang, "求解结果一致", "matching solution"), "t-small")
+    s.text(750, yb + 27, T(lang, "求解结果错误", "incorrect solution"), "t-small")
     return s
 
 

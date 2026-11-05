@@ -15,7 +15,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>文字修仙 · 游渊 YouYuan</title>
-<meta name="description" content="一个用汉字表示物质的游戏原型，玩家移动“我”，选材料写进场景。开发记录到了第 11 版，还没真人试玩过。">
+<meta name="description" content="一个用汉字表示物质的游戏原型，玩家移动“我”，选材料写进场景。原型开发记录到了第 11 版，尚未进行真人试玩。现另提供材料规则的在线元胞实验版。">
 <link rel="alternate" hreflang="zh-CN" href="https://sephirxth.github.io/projects/text-cultivation/">
 <link rel="alternate" hreflang="en" href="https://sephirxth.github.io/en/projects/text-cultivation/">
 <link rel="alternate" hreflang="x-default" href="https://sephirxth.github.io/projects/text-cultivation/">
@@ -35,14 +35,18 @@
   <article class="proj">
     <header>
       <h1>文字修仙</h1>
-      <p class="lede">一个用汉字表示物质的游戏原型，玩家移动“我”，选材料写进场景。开发记录到了第 11 版，还没真人试玩过。</p>
+      <p class="lede">一个用汉字表示物质的游戏原型，玩家移动“我”，选材料写进场景。原型开发记录到了第 11 版，尚未进行真人试玩。现另提供材料规则的在线元胞实验版。</p>
       <dl class="facts">
         <dt>TYPE</dt><dd>用汉字表示物质的游戏原型</dd>
-        <dt>STATUS</dt><dd>开发到第 11 版，还没真人试玩</dd>
+        <dt>STATUS</dt><dd>原型至第 11 版，尚未真人试玩；<a href="https://sephirxth-text-cultivation.vercel.app/">在线试玩元胞实验版</a></dd>
         <dt>WHEN</dt><dd>2026</dd>
         <dt>BUILT WITH</dt><dd>Rust 编写，Bevy 驱动，字形用图集显示</dd>
       </dl>
     </header>
+
+    <h2>在线元胞实验</h2>
+    <p>这次网页试玩把材料规则改写为格子上的元胞实验，可以放置水、火、木、金并观察局部变化。它没有移植原型完整版，未包含创世、渡劫和死亡机制。下文介绍的仍是原型及其开发记录。</p>
+    <p><a href="https://sephirxth-text-cultivation.vercel.app/">在线试玩元胞实验版</a></p>
 
     <h2>先选材料再写</h2>
     <p>我先从渡劫讲起。方向键或 WASD 移动“我”，数字键 1–4 选水、火、金、木，按住或拖动左键把材料写进场景，不能随便敲别的字。每个字花 1 点灵力，灵力上限 180 点，每秒回 12 点，满池连着写，约 10 秒就见底。</p>
@@ -86,14 +90,14 @@
     <ul>
       <li>山、林、剑不在材料列表里，“由玩家自己认出来”还只是设计想法，没有真人试玩验证过。创世界面也会按数量显示菌膜、苔丛这类名字，概念不是全留给玩家命名的。</li>
       <li>渡劫会记下死因，冻结 2.4 个真实秒后重建整个世界，道典没有保存死后的现场。正式通关目标和胜利状态还没有。</li>
-      <li>第 11 版有 Windows 产物，网页版还停在 v8.3。</li>
+      <li>原型第 11 版有 Windows 产物，早期网页版为 v8.3。现另提供<a href="https://sephirxth-text-cultivation.vercel.app/">元胞实验版网页试玩</a>。</li>
       <li>自动实验能查物理关系，真人能不能读懂原因、灵力和雷火的节奏合不合适，都还要等试玩。</li>
     </ul>
   </article>
 
   <nav class="pager">
     <span><a href="/">← 首页</a></span>
-    <span><a href="/projects/cozy-apocalypse/">末日港湾 →</a></span>
+    <span><a href="/projects/self-running-worlds/">会自己运转的世界 →</a></span>
   </nav>
 
   <footer class="foot">

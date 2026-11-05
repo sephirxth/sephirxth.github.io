@@ -54,13 +54,8 @@
         <div class="items">
           <article class="item lead-out">
             <h3><span><a href="/en/projects/text-cultivation/">Text cultivation</a></span></h3>
-            <p>A game where matter is Chinese characters. You write a character (water, fire, wood, metal) into the world and watch it burn, melt, or grow by the rules. Mountain, forest, and sword are not in the rules; I want players to recognize those themselves, which no real player has tested yet. It's at version 11, and I'm looking for playtesters.</p>
-            <p class="by"><span lang="zh">文字修仙</span> · text game, 2026</p>
-          </article>
-          <article class="item">
-            <h3><span><a href="/en/projects/cozy-apocalypse/">Cozy Apocalypse AI Haven</a></span></h3>
-            <p>A 3D post-apocalyptic survival building game in Godot. Days are for scavenging, dusk for repairs, night for campfire talks with the townsfolk. Opening, ending, and free management afterward are all coded, but a full playthrough hasn't been verified yet. Townsfolk each hold beliefs about the world; what they see shifts them, and the day's activity is scored and drawn from those beliefs.</p>
-            <p class="by"><span lang="zh">末日港湾</span> · 2026</p>
+            <p>A game where Chinese characters represent materials. Place water, fire, wood, and metal on a grid, then watch them flow, burn, and melt. A cellular automaton experiment is now available to play in the browser.</p>
+            <p class="by"><span lang="zh">文字修仙</span> · text game, 2026 · <a href="https://sephirxth-text-cultivation.vercel.app/">Play online</a></p>
           </article>
           <article class="item">
             <h3><span><a href="/en/projects/self-running-worlds/">Worlds that run themselves</a></span></h3>
@@ -74,10 +69,11 @@
           </article>
         </div>
         <figure class="plate">
-          <img class="px" src="/assets/img/plate-rule110.png" width="400" height="300" alt="Evolution of the Rule 110 cellular automaton">
+          <img id="rule110" class="px" src="/assets/img/plate-rule110.png" data-static="/assets/img/plate-rule110.png" data-animated="/assets/img/plate-rule110.gif" width="400" height="300" alt="Time-space diagram of Rule 110 evolving over time">
           <figcaption>
             <p class="cap">RULE 110</p>
-            <p class="note">Each cell looks only at its two neighbors and updates by eight rules. The structures in the picture came out of that; nobody drew them.</p>
+            <button id="rule110-toggle" class="motion-toggle" type="button" aria-controls="rule110" data-pause="Pause animation" data-play="Play animation" hidden>Play animation</button>
+            <p class="note">Each cell updates from its own state and its two neighbors under Rule 110. Each frame advances one generation.</p>
           </figcaption>
         </figure>
       </div>
@@ -114,29 +110,30 @@
   <section class="band">
     <div class="gut"><span>RESEARCH</span></div>
     <div class="body">
+      <p class="research-links"><a href="https://scholar.google.com/citations?user=PFQ2aX8AAAAJ">Google Scholar</a></p>
       <div class="row">
         <div class="items">
-          <article class="item lead-out">
-            <h3><span><a href="/en/projects/one-lane/">One lane, two directions</a></span></h3>
-            <p>A construction access road in the mountains has only one lane, so vehicles going opposite ways have to pass each other at passing bays (the formal name is long-distance single-lane two-way traffic). We use sensing and signal lights so that opposing convoys meet only at the bays. The system is already in use on an expressway construction site.</p>
-            <p class="by">Since 2024</p>
-          </article>
           <article class="item">
-            <h3><span><a href="/en/projects/lane-change/">Emergence in lane changing</a></span></h3>
-            <p>The question from my PhD. Every car changes lanes in whatever way is best for itself, and the whole road gets slower. Why, and how can that be corrected? Now I'm looking at how the rare but high-impact lane changes come about.</p>
+            <h3><span><a href="/en/projects/lane-change/">Collective emergence in human-driven and automated traffic</a></span></h3>
+            <p>This research investigates microscopic interactions among human-driven and automated vehicles and their implications for collective traffic dynamics, focusing on lane-changing games, individual incentives, system-wide traffic efficiency, and long-tail lane-changing scenarios.</p>
             <p class="by">Since 2016</p>
           </article>
           <article class="item">
-            <h3><span><a href="/en/projects/tests-vs-models/">Passing the tests doesn't make the model right</a></span></h3>
-            <p>Getting a large language model to turn a scheduling problem described in text into an optimization model, then checking whether the model is actually right. A program that passes the tests can still be wrong on a new set of numbers.</p>
-            <p class="by">2026, paper in draft</p>
+            <h3><span><a href="/en/projects/one-lane/">Intelligent control of long-distance single-lane two-way traffic</a></span></h3>
+            <p>This research addresses coordinated passage of opposing vehicle platoons on mountain construction access roads through vehicle detection and signal control. The control system developed by the team has been deployed at an expressway construction site.</p>
+            <p class="by">Since 2024</p>
+          </article>
+          <article class="item">
+            <h3><span><a href="/en/projects/tests-vs-models/">Evaluating the correctness of LLM-generated optimization models</a></span></h3>
+            <p>This research evaluates the correctness of optimization models generated by large language models from textual scheduling problems. It distinguishes agreement on a finite set of numerical instances from model correctness and examines how numerical test coverage affects the detection of modeling errors.</p>
+            <p class="by">2026, working paper</p>
           </article>
         </div>
         <figure class="plate">
           <img class="px" src="/assets/img/plate-timespace.png" width="400" height="300" alt="Time–space diagram of two-way traffic on a single lane">
           <figcaption>
-            <p class="cap">TIME–SPACE DIAGRAM</p>
-            <p class="note">Time runs to the right, position upward. Solid lines are vehicles going up, dashed lines going down. Opposing convoys meet only at the passing bays (the dotted horizontal bands).</p>
+            <p class="cap">SINGLE-LANE TWO-WAY TRAFFIC</p>
+            <p class="note">Time-space schematic of long-distance single-lane two-way traffic. Time increases to the right and position upward. Solid and dashed lines represent opposing platoons; dotted bands indicate passing bays.</p>
           </figcaption>
         </figure>
       </div>
@@ -172,5 +169,6 @@
 </script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a5f31fd19bf14dda997cec8c57718059"}'></script><!-- End Cloudflare Web Analytics -->
 <!-- Umami --><script defer src="https://aws-ec2-oregon.tail17a64.ts.net/glyph.js" data-website-id="5b204497-f89b-4179-a471-cdeef73fc96f" data-host-url="https://aws-ec2-oregon.tail17a64.ts.net" data-domains="sephirxth.github.io"></script><!-- End Umami -->
+<script defer src="/assets/js/rule110.js"></script>
 </body>
 </html>

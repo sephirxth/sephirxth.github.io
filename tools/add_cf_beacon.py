@@ -2,7 +2,7 @@
 """Insert (or replace) the Cloudflare Web Analytics beacon in every page of the site.
 
 Usage: add_cf_beacon.py <site-root> <token> [--dry-run]
-Skips redirect-only pages (meta refresh). Idempotent: an existing block between the
+Skips redirect-only pages (meta refresh), .git, tools/, and standalone demos/. Idempotent: an existing block between the
 markers is replaced, so rerunning with a new token just swaps it.
 """
 import pathlib, re, sys
@@ -20,7 +20,7 @@ def main():
         sys.exit(f"token does not look like a CF beacon token: {token!r}")
     done = skipped = 0
     for p in sorted(root.rglob("*.html")):
-        if ".git" in p.parts or "tools" in p.parts:
+        if ".git" in p.parts or "tools" in p.parts or p.relative_to(root).parts[0] == "demos":
             continue
         s = p.read_text(encoding="utf-8")
         if re.search(r'http-equiv=["\']?refresh', s, re.I):

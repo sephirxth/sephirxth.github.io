@@ -101,10 +101,30 @@ python3 tools/figs.py
 python3 tools/art.py
 ```
 
+首页的 Rule 110 动图由同一套规则、初始状态、裁切和两色配色生成，第一帧对应原 PNG：
+
+```bash
+python3 tools/animate_rule110.py   # 需要 Pillow，生成 80 帧 GIF
+```
+
+两个首页默认用 JavaScript 切到 GIF，访客可暂停；系统选择减少动态效果、脚本不可用时显示原 PNG。`assets/js/rule110.js` 只管这张图。
+
+末日港湾页面保留历史地址，但不再从首页或当前项目导航展示；两页设为 `noindex`，并由 `tools/make_sitemap.py` 排除。恢复展示时须同时恢复这几处。
+
 想换成自己的截图，先把它处理成同样的两色抖点风格再放进来，页面风格才统一。
 
 ## 本地预览
 
 ```bash
 python3 -m http.server 8000   # 然后打开 http://127.0.0.1:8000/
+```
+
+## 文字修仙网页试玩
+
+在线元胞实验版：<https://sephirxth-text-cultivation.vercel.app/>。它是材料规则的格子改写，不是原型完整版移植。源代码放在 `demos/text-cultivation/`；Vercel 部署只上传该目录，直接提供静态文件，不需要构建。`demos/` 由独立试玩维护，不纳入主站的统计脚本批量维护或站点地图。
+
+修改材料模拟后，在仓库根目录运行行为检查：
+
+```bash
+node demos/text-cultivation/tests/simulation.test.mjs
 ```

@@ -13,7 +13,7 @@ asks for it; having it inside <head> also lets Google Search Console verify site
 "Google Analytics" method.
 
 Written after add_umami.py / tools/add_cf_beacon.py in the site repo: skips redirect-only pages
-(meta refresh), .git and tools/; idempotent: an existing block between the markers is replaced, so
+(meta refresh), .git, tools/, and standalone demos/; idempotent: an existing block between the markers is replaced, so
 rerunning with a new ID just swaps it. Line endings are kept: the block uses the file's own newline.
 """
 import pathlib, re, sys
@@ -63,7 +63,7 @@ def main():
     changed, skipped, unchanged, nohead = [], 0, 0, []
     for p in sorted(root.rglob("*.html")):
         rel = p.relative_to(root)
-        if ".git" in rel.parts or "tools" in rel.parts:
+        if ".git" in rel.parts or "tools" in rel.parts or rel.parts[0] == "demos":
             continue
         with open(p, encoding="utf-8", newline="") as f:
             s = f.read()
