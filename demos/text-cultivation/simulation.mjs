@@ -13,7 +13,8 @@ export const materials = [
   { glyph: '灰', name: '灰', color: '#6d6861', temp: 400, mass: .5, fuel: 0 },
   { glyph: '金', name: '熔金', color: '#a54c27', temp: 1400, mass: 19, fuel: 0, conductivity: 1 },
 ];
-const fields = ['kind', 'temp', 'mass', 'fuel', 'charge', 'age', 'residue'];
+// uid follows a cell through swaps so a renderer can track motion and state changes; rules never read it.
+const fields = ['kind', 'temp', 'mass', 'fuel', 'charge', 'age', 'residue', 'uid'];
 const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
 
 export class World {
@@ -25,6 +26,7 @@ export class World {
     this.previousKind = new Uint8Array(this.size);
     for (const field of fields.slice(1)) this[field] = new Float64Array(this.size);
     this.seed = seed >>> 0;
+    this.nextUid = 1;
     this.ambient = ambient;
     this.heat = new Float64Array(this.size);
     this.nextCharge = new Float64Array(this.size);
@@ -60,6 +62,7 @@ export class World {
     this.fuel[i] = props.fuel ?? material.fuel;
     this.charge[i] = props.charge ?? (kind === K.LIGHTNING ? 5 : 0);
     this.residue[i] = props.residue ?? 0;
+    this.uid[i] = this.nextUid++;
     return true;
   }
   totalMass() { return this.mass.reduce((sum, n) => sum + n, 0); }
@@ -288,6 +291,39 @@ export function example(world, name = 'forest') {
     for (let x = c - 6; x <= c + 6; x += 2) world.set(x, floor, K.FIRE, { fuel: 5 });
     line(c - 7, c + 7, 3, K.ICE);
     line(c - 3, c + 3, floor - 5, K.STEAM);
+  } else if (name === 'landscape') {
+    // Two peaks, a lake held by a ridge, a forest, a gold seam and clouds;
+    // the opening bolt lands on the tallest tree.
+    const peak = (cx, half, snow) => {
+      for (let j = 0; j <= half; j++) for (let x = cx - (half - j); x <= cx + (half - j); x++) {
+        if (x >= 0 && x < w && floor - j >= 1) world.set(x, floor - j, j >= half - snow + 1 && snow ? K.ICE : K.EARTH);
+      }
+    };
+    const leftX = Math.round(w * .12), leftHalf = Math.max(3, Math.min(Math.round(w * .12), floor - 6));
+    const rightX = Math.round(w * .87), rightHalf = Math.max(4, Math.min(Math.round(w * .15), floor - 5));
+    peak(leftX, leftHalf, 0); peak(rightX, rightHalf, 0);
+    for (let j = 1; j <= 3; j++) world.set(rightX - 3 + j, floor - j, K.GOLD);
+    const ridgeX = Math.round(w * .43);
+    peak(ridgeX, 3, 0);
+    for (let y = floor - 3; y <= floor; y++) for (let x = leftX + leftHalf - 3; x <= ridgeX - 2; x++) {
+      if (world.kind[world.index(x, y)] === K.EMPTY) world.set(x, y, K.WATER);
+    }
+    const trees = [];
+    for (let x = ridgeX + 5; x <= rightX - rightHalf - 2; x += 3) trees.push(x);
+    const tallest = trees[Math.floor(trees.length / 2)] ?? ridgeX + 5;
+    let strike = null;
+    for (const x of trees) {
+      const height = x === tallest ? 5 : 3 + (x % 2), top = floor - height;
+      for (let y = floor; y > top; y--) world.set(x, y, K.WOOD);
+      line(x - 1, x + 1, top, K.WOOD);
+      world.set(x, top - 1, K.WOOD);
+      if (x === tallest) strike = [x, top - 2];
+    }
+    for (let x = Math.round(w * .18); x <= Math.round(w * .62); x++) {
+      if ((x * 7 + 3) % 5 !== 0) world.set(x, 2, K.STEAM);
+      if ((x * 5 + 1) % 3 !== 0 && x > w * .24 && x < w * .55) world.set(x, 3, K.STEAM);
+    }
+    if (strike && strike[1] > 4) world.set(strike[0], strike[1], K.LIGHTNING);
   } else if (name === 'lightning') {
     const c = Math.floor(w / 2);
     line(5, w - 6, floor - 4, K.GOLD);

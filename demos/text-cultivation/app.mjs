@@ -1,26 +1,64 @@
 import { K, materials, World, Simulation, example } from './simulation.mjs';
+import { createGLRenderer } from './render-gl.mjs';
 import { createEffects } from './effects.mjs';
 import { createAudio } from './audio.mjs';
 
 const $ = id => document.getElementById(id);
-const canvas = $('field'), ctx = canvas.getContext('2d');
-if (!ctx) {
-  $('canvas-error').hidden = false;
-  for (const control of document.querySelectorAll('button,select')) control.disabled = true;
-  throw new Error('Canvas 2D unavailable');
-}
+let canvas = $('field');
 const mobile = matchMedia('(max-width:480px)').matches;
+const narrow = matchMedia('(max-width:760px)').matches;
 const reduceMotion = matchMedia('(prefers-reduced-motion:reduce)');
-const world = new World(mobile ? 36 : 64, 34);
+// Cells are square: the grid is sized once from the canvas box at load.
+function gridSize() {
+  const rect = canvas.getBoundingClientRect(), width = Math.max(240, rect.width || 960);
+  if (narrow) {
+    const columns = Math.round(Math.max(24, Math.min(44, width / (mobile ? 11.5 : 14))));
+    const rows = Math.round(Math.max(18, Math.min(34, Math.min(width * .95, innerHeight * .44) / (width / columns))));
+    canvas.style.aspectRatio = `${columns} / ${rows}`;
+    return [columns, rows];
+  }
+  const columns = Math.round(Math.max(36, Math.min(84, width / 19)));
+  return [columns, Math.round(Math.max(18, Math.min(40, Math.max(240, rect.height || 480) / (width / columns))))];
+}
+const [columns, rows] = gridSize();
+const world = new World(columns, rows);
 const simulation = new Simulation(world);
 const audio = createAudio();
-const effects = createEffects({ world, materials, K, mobile });
-const player = { x: Math.floor(world.width * .16), y: 22, dx: 1, dy: 0 };
+function createRenderer() {
+  let gl = null;
+  const forced2d = new URLSearchParams(location.search).get('renderer') === '2d';
+  if (!forced2d) try { gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false, powerPreference: 'high-performance' }); } catch { gl = null; }
+  if (gl) {
+    try { return createGLRenderer({ canvas, gl, world, materials, K, mobile }); }
+    catch (error) {
+      console.warn('WebGL renderer unavailable, using Canvas 2D.', error);
+      // A canvas that already holds a WebGL context cannot give a 2D one.
+      const fresh = canvas.cloneNode(true); canvas.replaceWith(fresh); canvas = fresh;
+    }
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const effects = createEffects({ world, materials, K, mobile });
+  return { emit: effects.emit, update: effects.update, render: state => effects.render(ctx, state), sync() {}, setMotion: effects.setMotion, invalidate: effects.invalidate, get active() { return effects.active; } };
+}
+const effects = createRenderer();
+if (!effects) {
+  $('canvas-error').hidden = false;
+  for (const control of document.querySelectorAll('button,select')) control.disabled = true;
+  throw new Error('No canvas renderer available');
+}
+// A lost GPU context (driver reset, long sleep) comes back blank; reload rather than show a dead canvas.
+canvas.addEventListener('webglcontextlost', event => event.preventDefault());
+canvas.addEventListener('webglcontextrestored', () => location.reload());
+const baseStep = simulation.singleStep.bind(simulation);
+simulation.singleStep = () => { baseStep(); effects.sync(true); };
+const startRow = () => Math.max(2, Math.round(world.height * .62));
+const player = { x: Math.floor(world.width * .16), y: startRow(), dx: 1, dy: 0 };
 let selected = K.WATER, brush = 0, cursor = null, pointer = null, lastPoint = null;
 let lastFrame = performance.now(), lastReadout = 0, drawCredit = 0, previousEvent = 0;
 let fullMotion = !reduceMotion.matches, motionChosen = false, visible = true, dirty = true;
 let animation = 0, inFrame = false, spentUntil = 0, stageUntil = 0, dryAt = -1000;
-let lastReaction = '', reactionAt = -1000;
+let lastReaction = '', reactionAt = -1000, holdUntil = 0, presentTime = 0;
 const spiritGroup = $('spirit').closest('.spirit');
 const hints = {
   [K.WATER]: '水向低处流，遇热变汽，遇冷结冰。',
@@ -39,7 +77,7 @@ function status(text, duration = 1500) {
   if (label) { label.textContent = text; stageUntil = performance.now() + duration; wake(); }
 }
 function sound(type, options = {}) {
-  if (!document.hidden && visible && !simulation.paused) audio.trigger(type, { ...options, width: world.width });
+  if (!document.hidden && visible && !simulation.paused) audio.trigger(type, { ...options, width: world.width, height: world.height });
 }
 function wake() {
   dirty = true;
@@ -76,10 +114,12 @@ if (soundToggle) {
     updateActivity();
   });
 }
+const pigments = { [K.WATER]: '#8fd0ff', [K.FIRE]: '#ff7a45', [K.WOOD]: '#6fcf8a', [K.GOLD]: '#efc66a', [K.EARTH]: '#d49a5c', [K.ICE]: '#dcf4ff', [K.STEAM]: '#c9d5e6', [K.LIGHTNING]: '#cbb8ff', [K.EMPTY]: '#c4c9d4' };
 for (const [index, kind] of [K.WATER, K.FIRE, K.WOOD, K.GOLD, K.EARTH, K.ICE, K.STEAM, K.LIGHTNING, K.EMPTY].entries()) {
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'material'; button.dataset.kind = kind;
   button.style.setProperty('--material', materials[kind].color);
+  button.style.setProperty('--pigment', pigments[kind]);
   button.setAttribute('aria-label', `${materials[kind].name}，快捷键 ${index + 1}`);
   button.setAttribute('aria-keyshortcuts', String(index + 1));
   button.innerHTML = `<span class="glyph">${materials[kind].glyph || '擦除'}</span><span class="shortcut">${index + 1}</span>`;
@@ -140,10 +180,12 @@ function reset() {
   example(world, $('example').value);
   simulation.spirit = 180; simulation.accumulator = 0; previousEvent = 0;
   pointer = null; lastPoint = null; drawCredit = 0;
-  player.x = Math.floor(world.width * .16); player.y = 22;
+  player.x = Math.floor(world.width * .16); player.y = startRow();
   effects.emit({ type: 'reset' });
+  // The scene writes itself in first, then starts to evolve.
+  holdUntil = presentTime + (fullMotion ? .62 : 0);
   sound('reset');
-  $('notice').textContent = ({ forest: '先看左边的火把木点着，再选水拖到火上。', water: '冰、水、汽会互相转化。试着加火，或给水加一道岸。', lightning: '金排连成导体。选雷，在金上方写一格，再看热与电往哪传。', blank: '这里是空的。先写一笔土，再放水，或种一排木。' })[$('example').value];
+  $('notice').textContent = ({ landscape: '雷落在最高的那棵树上，火会沿树冠烧开。高处的汽遇冷，会落成雨。', forest: '先看左边的火把木点着，再选水拖到火上。', water: '冰、水、汽会互相转化。试着加火，或给水加一道岸。', lightning: '金排连成导体。选雷，在金上方写一格，再看热与电往哪传。', blank: '这里是空的。先写一笔土，再放水，或种一排木。' })[$('example').value];
   status('写下一个字，让它开始变化。', 2400);
   wake(); updateReadout();
 }
@@ -157,7 +199,8 @@ function fit() {
   wake();
 }
 function render() {
-  effects.render(ctx, { player, cursor: cursor && { ...cursor, drawing: Boolean(pointer), kind: pointer?.kind ?? selected }, brush, selected, paused: simulation.paused });
+  const alpha = simulation.paused ? 1 : Math.min(1, simulation.accumulator / .05);
+  effects.render({ player, cursor: cursor && { ...cursor, drawing: Boolean(pointer), kind: pointer?.kind ?? selected }, brush, selected, paused: simulation.paused, alpha });
   dirty = false;
 }
 function updateReadout() {
@@ -275,6 +318,8 @@ new IntersectionObserver(entries => {
   else { lastFrame = performance.now(); wake(); }
 }, { threshold: 0 }).observe(canvas);
 new ResizeObserver(fit).observe(canvas);
+// Wait briefly for the brush face so the first written scene uses it.
+await Promise.race([document.fonts?.load?.('64px BrushKai', '水火木金土冰汽雷灰我') ?? Promise.resolve(), new Promise(done => setTimeout(done, 1500))]).catch(() => {});
 reset(); fit();
 document.fonts.ready.then(() => { effects.invalidate(); wake(); });
 function frame(now) {
@@ -283,7 +328,9 @@ function frame(now) {
   inFrame = true;
   const elapsed = Math.max(0, (now - lastFrame) / 1000);
   lastFrame = now;
-  simulation.advance(elapsed);
+  // Presentation time advances like the renderer's clock, so the hold matches the intro on slow devices too.
+  presentTime += Math.min(.05, elapsed);
+  if (presentTime >= holdUntil) simulation.advance(elapsed);
   const events = consumeEffects();
   if (pointer && cursor) {
     drawCredit += Math.min(.2, elapsed) * 20;

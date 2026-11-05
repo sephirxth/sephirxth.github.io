@@ -217,7 +217,7 @@ test('effects stay in bounds, drain once, and reset with every example', () => {
   world.set(2, 2, K.LIGHTNING);
   world.step();
   assert.equal(effects.length, 2, 'a returned batch stays detached from later events');
-  for (const name of ['blank', 'forest', 'water', 'lightning']) {
+  for (const name of ['blank', 'forest', 'water', 'lightning', 'landscape']) {
     world.set(2, 2, K.LIGHTNING);
     world.step();
     example(world, name);
@@ -260,5 +260,20 @@ test('consuming effects does not change physical state or the random sequence', 
     }
     assert.deepEqual(consumed.drainEffects(), []);
     assert.ok(retained.drainEffects().length > 0);
+  }
+});
+
+test('landscape opens with a strike on a tree, keeps its lake behind the ridge, and burns the forest', () => {
+  for (const [w, h] of [[64, 26], [84, 34], [30, 27]]) {
+    const world = new World(w, h);
+    example(world, 'landscape');
+    assert.equal(world.count(K.LIGHTNING), 1, `${w}x${h} strike`);
+    assert.ok(world.count(K.WATER) > 8 && world.count(K.WOOD) > 8 && world.count(K.GOLD) === 3 && world.count(K.STEAM) > 8, `${w}x${h} materials`);
+    for (let i = 0; i < 160; i++) world.step();
+    assert.ok(world.events.ignited > 4, `${w}x${h} the forest catches`);
+    const ridge = Math.round(w * .43);
+    let leaked = 0;
+    for (let y = 0; y < h; y++) for (let x = ridge + 3; x < w; x++) if (world.kind[world.index(x, y)] === K.WATER) leaked++;
+    assert.ok(leaked <= 2, `${w}x${h} lake stays behind the ridge (${leaked})`);
   }
 });

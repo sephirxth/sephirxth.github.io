@@ -1,7 +1,7 @@
-@font-face{font-family:GlyphSerif;src:url('assets/glyphs.woff2') format('woff2');font-display:swap}
+@font-face{font-family:BrushKai;src:url('assets/brush-kai.woff2') format('woff2');font-display:swap}
 :root{
   --paper:#faf9f5;--ink:#20221f;--soft:#5e615a;--line:#c9cbc2;
-  --field:#f3f3ec;--focus:#335d83;--ease:cubic-bezier(.16,1,.3,1);
+  --field:#0d1630;--focus:#335d83;--ease:cubic-bezier(.16,1,.3,1);--indigo:#111d38;--leaf:#c9a557;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans CJK SC','Microsoft YaHei',sans-serif;
   color:var(--ink);background:var(--paper);color-scheme:light;font-synthesis:none;
   scrollbar-color:#92958b var(--paper);
@@ -29,8 +29,8 @@ main{max-width:1280px;margin:auto;padding:20px 32px 40px}
 .masthead{display:flex;justify-content:space-between;gap:20px;font-size:12px;line-height:1.5;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .masthead a{text-decoration:none}
 .masthead a:hover{text-decoration:underline}
-.title-row{display:flex;align-items:end;justify-content:space-between;gap:30px;margin:20px 0 20px}
-h1{font-family:GlyphSerif,'Noto Serif CJK SC','Songti SC',serif;font-weight:500;font-size:36px;letter-spacing:.035em;line-height:1.35;margin:0 0 7px;text-wrap:balance}
+.title-row{display:flex;align-items:end;justify-content:space-between;gap:30px;margin:16px 0 14px}
+h1{font-family:BrushKai,'Noto Serif CJK SC','Songti SC',serif;font-weight:400;font-size:42px;letter-spacing:.06em;line-height:1.2;margin:0 0 4px;text-wrap:balance}
 .intro{font-family:'Noto Serif CJK SC','Songti SC',serif;margin:0;font-size:15px;line-height:1.7}
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 11px;font-size:12px}
 .playback,.settings,.feedback-controls{display:flex;gap:7px;align-items:center}
@@ -41,8 +41,8 @@ h1{font-family:GlyphSerif,'Noto Serif CJK SC','Songti SC',serif;font-weight:500;
 #sound-toggle[aria-pressed=true]{background:#e1e8da;border-color:#87957a;color:#334628}
 #sound-toggle[aria-pressed=true]::before{content:'';display:inline-block;width:5px;height:5px;margin:0 6px 2px 0;border-radius:50%;background:currentColor}
 #motion-toggle[aria-pressed=false]{background:#eeeee7;color:#585d52}
-.field-wrap{position:relative;background:var(--field);border:1px solid #b8bdb0;box-shadow:0 5px 15px -11px #4047353b;isolation:isolate}
-canvas{display:block;width:100%;height:clamp(310px,calc(100svh - 350px),570px);touch-action:none;cursor:crosshair;outline:none}
+.field-wrap{position:relative;background:var(--field);border:1px solid #8f7744;outline:1px solid #d9c9a0;outline-offset:3px;box-shadow:0 22px 44px -26px #0b1430aa;isolation:isolate}
+canvas{display:block;width:100%;height:clamp(330px,calc(100svh - 300px),660px);touch-action:none;cursor:crosshair;outline:none;background:var(--field)}
 canvas:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
 .canvas-error{position:absolute;inset:0;display:grid;place-content:center;padding:30px;color:#9c3326;font-size:16px;background:var(--field)}
 .canvas-error[hidden]{display:none}
@@ -60,17 +60,18 @@ meter::-moz-meter-bar{background:#5c6b4c;transition:background-color 160ms}
 .spirit[data-state=low] meter::-moz-meter-bar,.spirit[data-state=spent] meter::-moz-meter-bar{background:#9a6034}
 output{min-width:58px}
 .materials{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:7px;padding:13px 0 11px}
-.material{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;min-width:0;min-height:53px;padding:8px 6px;border-color:transparent;border-radius:2px}
-.material::after{content:'';position:absolute;left:25%;right:25%;bottom:5px;height:1px;background:var(--material);opacity:0;transform:scaleX(.35);transition:opacity 150ms,transform 180ms var(--ease)}
-.material .glyph{font-family:GlyphSerif,'Noto Serif CJK SC',serif;font-size:28px;line-height:1.1;color:var(--material);transition:color 140ms}
-.material .shortcut{font-size:11px;color:var(--soft);font-variant-numeric:tabular-nums}
-.material:hover{border-color:#d6d9ce;background:#eeefe7;background:color-mix(in srgb,var(--material) 5%,var(--paper))}
+.material{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;min-width:0;min-height:53px;padding:8px 6px;border-color:#24345a;border-radius:2px;background:var(--indigo)}
+.material::after{content:'';position:absolute;left:25%;right:25%;bottom:5px;height:1px;background:var(--pigment,var(--material));opacity:0;transform:scaleX(.35);transition:opacity 150ms,transform 180ms var(--ease)}
+.material .glyph{font-family:BrushKai,'Noto Serif CJK SC',serif;font-size:30px;line-height:1.1;color:var(--pigment,var(--material));transition:color 140ms,text-shadow 160ms}
+.material .shortcut{font-size:11px;color:#8792aa;font-variant-numeric:tabular-nums}
+.material:hover{border-color:#3a4d78;background:#172748}
 .material:hover::after{opacity:.5;transform:scaleX(.7)}
-.material[aria-pressed=true]{border-color:var(--material);background:#e9ece3;background:color-mix(in srgb,var(--material) 9%,var(--paper))}
+.material[aria-pressed=true]{border-color:var(--leaf);background:#182a50;box-shadow:inset 0 0 0 1px #c9a55755,0 6px 16px -10px #0b1430}
+.material[aria-pressed=true] .glyph{text-shadow:0 0 14px var(--pigment)}
 .material[aria-pressed=true]::after{opacity:.8;transform:scaleX(1)}
-.material[aria-pressed=true] .shortcut{color:var(--material)}
-.material:active{background:#e0e5d9;background:color-mix(in srgb,var(--material) 17%,var(--paper))}
-.material[data-kind='0'] .glyph{font-size:13px;font-family:inherit}
+.material[aria-pressed=true] .shortcut{color:var(--leaf)}
+.material:active{background:#1d3260}
+.material[data-kind='0'] .glyph{font-size:13px;font-family:inherit;letter-spacing:.1em}
 .brush-row{display:flex;align-items:center;justify-content:space-between;gap:20px;font-size:12px;color:var(--soft)}
 .brush-row p{margin:0;line-height:1.7}
 .brush-row select{min-height:32px}
@@ -97,7 +98,7 @@ footer a,footer span{white-space:nowrap}
   .settings{order:3;flex-basis:100%;margin-left:0}
   .feedback-controls{margin-left:auto}
   .settings select{min-height:32px}
-  canvas{height:clamp(300px,calc(100svh - 370px),550px)}
+  canvas{height:clamp(300px,calc(100svh - 330px),600px)}
   #stage-status{display:none}
   .rules{gap:32px}
 }
@@ -136,7 +137,7 @@ footer a,footer span{white-space:nowrap}
   .settings{justify-content:space-between;gap:8px;font-size:11px}
   .settings label{gap:7px}
   .settings select{min-height:36px;padding-right:20px}
-  canvas{aspect-ratio:36/34;max-height:42svh}
+  canvas{aspect-ratio:36/34}
   .materials{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:10px 0 9px}
   .material{min-height:44px;padding:5px 2px}
   .material .glyph{font-size:24px}

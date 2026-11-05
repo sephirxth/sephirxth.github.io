@@ -185,7 +185,7 @@ export function createEffects({ world, materials, K, mobile = false }) {
     const image = document.createElement('canvas');
     image.width = image.height = Math.ceil(size * 1.7);
     const ink = image.getContext('2d');
-    ink.font = `500 ${size}px GlyphSerif, "Noto Serif CJK SC", serif`;
+    ink.font = `500 ${size}px BrushKai, "Noto Serif CJK SC", serif`;
     ink.textAlign = 'center'; ink.textBaseline = 'middle'; ink.fillStyle = color;
     ink.fillText(materials[kind].glyph, image.width / 2, image.height / 2 + size * .04);
     glyphs.set(key, image);
@@ -327,7 +327,7 @@ export function createEffects({ world, materials, K, mobile = false }) {
         if (p.reaction === 'freeze') {
           for (let a = 0; a < 6; a++) { const angle = a * Math.PI / 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r); ctx.stroke(); }
         } else if (motion && p.label && t > .08) {
-          ctx.font = `500 ${unit * .78}px GlyphSerif, "Noto Serif CJK SC", serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.font = `500 ${unit * .78}px BrushKai, "Noto Serif CJK SC", serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           ctx.fillText(p.label, x, y - unit * (.6 + t * 1.3));
         }
       } else if (p.type === 'bolt') {
@@ -365,7 +365,7 @@ export function createEffects({ world, materials, K, mobile = false }) {
     const px = (person.x + .5) * cw, py = (person.y + .5) * ch;
     ctx.globalAlpha = .12; ctx.fillStyle = '#30372b'; ctx.beginPath(); ctx.ellipse(px, py + ch * .42, cw * .5, ch * .14, 0, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1; ctx.fillStyle = '#222a20'; ctx.fillRect(px - cw * .5, py - ch * .5, cw, ch);
-    ctx.fillStyle = '#faf9f5'; ctx.font = `500 ${size}px GlyphSerif, "Noto Serif CJK SC", serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('我', px, py + size * .04);
+    ctx.fillStyle = '#faf9f5'; ctx.font = `500 ${size}px BrushKai, "Noto Serif CJK SC", serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('我', px, py + size * .04);
     ctx.fillStyle = '#bac5a8'; ctx.fillRect(px + player.dx * cw * .4 - unit * .035, py + player.dy * ch * .4 - unit * .035, unit * .07, unit * .07);
     if (cursor) {
       const kind = cursor.kind ?? selected, left = (cursor.x - brush) * cw, top = (cursor.y - brush) * ch, side = brush * 2 + 1;
