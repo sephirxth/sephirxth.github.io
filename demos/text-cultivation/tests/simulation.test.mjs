@@ -268,12 +268,30 @@ test('landscape opens with a strike on a tree, keeps its lake behind the ridge, 
     const world = new World(w, h);
     example(world, 'landscape');
     assert.equal(world.count(K.LIGHTNING), 1, `${w}x${h} strike`);
-    assert.ok(world.count(K.WATER) > 8 && world.count(K.WOOD) > 8 && world.count(K.GOLD) === 3 && world.count(K.STEAM) > 8, `${w}x${h} materials`);
+    assert.ok(world.count(K.WATER) > 8 && world.count(K.WOOD) > 8 && world.count(K.GOLD) === 3 && world.count(K.STEAM) > 8 && world.count(K.ICE) >= 4, `${w}x${h} materials`);
     for (let i = 0; i < 160; i++) world.step();
     assert.ok(world.events.ignited > 4, `${w}x${h} the forest catches`);
     const ridge = Math.round(w * .43);
     let leaked = 0;
     for (let y = 0; y < h; y++) for (let x = ridge + 3; x < w; x++) if (world.kind[world.index(x, y)] === K.WATER) leaked++;
     assert.ok(leaked <= 2, `${w}x${h} lake stays behind the ridge (${leaked})`);
+    let floating = 0;
+    for (let y = 0; y < 3; y++) for (let x = 0; x < w; x++) if (world.kind[world.index(x, y)] === K.ICE) floating++;
+    assert.equal(floating, 0, `${w}x${h} no snow floats up to the sky`);
   }
+});
+
+test('ice stays put in air and floats up only through water', () => {
+  const air = new World(5, 8, { ambient: false });
+  air.set(2, 5, K.ICE);
+  for (let i = 0; i < 200; i++) air.step();
+  assert.equal(air.kind[air.index(2, 5)], K.ICE, 'ice in air does not rise');
+  assert.equal(air.count(K.ICE), 1);
+  // At exactly 273 K neither phase change fires, so only buoyancy acts.
+  const pool = new World(5, 8, { ambient: false });
+  for (let y = 2; y < 8; y++) for (let x = 0; x < 5; x++) pool.set(x, y, K.WATER, { temp: 273 });
+  pool.set(2, 7, K.ICE, { temp: 273 });
+  for (let i = 0; i < 120; i++) pool.step();
+  const at = pool.kind.indexOf(K.ICE);
+  assert.equal(Math.floor(at / pool.width), 2, 'ice rises to the water surface and stops there');
 });

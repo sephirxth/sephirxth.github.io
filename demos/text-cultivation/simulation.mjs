@@ -230,7 +230,8 @@ export class World {
             if (attempt(i, x + dir, y + 1, swap)) continue;
             if (attempt(i, x - dir, y + 1, swap)) continue;
             if (kind === K.WATER || kind === K.MOLTEN) attempt(i, x + dir, y, swap);
-          } else if (kind === K.ICE && this.random() < .5) attempt(i, x, y - 1, target => target === K.WATER);
+            // Ice floats up through water only; in air it stays put like wood and gold.
+          } else if (kind === K.ICE && this.random() < .5 && this.kind[this.index(x, y - 1)] === K.WATER) attempt(i, x, y - 1, target => target === K.WATER);
         }
       }
     }
@@ -292,16 +293,19 @@ export function example(world, name = 'forest') {
     line(c - 7, c + 7, 3, K.ICE);
     line(c - 3, c + 3, floor - 5, K.STEAM);
   } else if (name === 'landscape') {
-    // Two peaks, a lake held by a ridge, a forest, a gold seam and clouds;
-    // the opening bolt lands on the tallest tree.
+    // Two snow-capped peaks, a lake held by a ridge, a forest, a gold seam and clouds;
+    // the opening bolt lands on the tallest tree. Mountains start at the air temperature of
+    // their height; heat from the warm ground creeps up and the snow melts into streams.
+    const air = y => world.ambient ? 290 - (1 - y / (h - 1)) * 58 : 290;
     const peak = (cx, half, snow) => {
       for (let j = 0; j <= half; j++) for (let x = cx - (half - j); x <= cx + (half - j); x++) {
-        if (x >= 0 && x < w && floor - j >= 1) world.set(x, floor - j, j >= half - snow + 1 && snow ? K.ICE : K.EARTH);
+        const y = floor - j, ice = snow > 0 && j > half - snow;
+        if (x >= 0 && x < w && y >= 1) world.set(x, y, ice ? K.ICE : K.EARTH, { temp: Math.min(ice ? 263 : 290, air(y)) });
       }
     };
     const leftX = Math.round(w * .12), leftHalf = Math.max(3, Math.min(Math.round(w * .12), floor - 6));
     const rightX = Math.round(w * .87), rightHalf = Math.max(4, Math.min(Math.round(w * .15), floor - 5));
-    peak(leftX, leftHalf, 0); peak(rightX, rightHalf, 0);
+    peak(leftX, leftHalf, 2); peak(rightX, rightHalf, 2);
     for (let j = 1; j <= 3; j++) world.set(rightX - 3 + j, floor - j, K.GOLD);
     const ridgeX = Math.round(w * .43);
     peak(ridgeX, 3, 0);
