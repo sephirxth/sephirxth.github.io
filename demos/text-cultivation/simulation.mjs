@@ -241,7 +241,7 @@ export class World {
 }
 
 export class Simulation {
-  constructor(world) { this.world = world; this.paused = false; this.speed = 1; this.accumulator = 0; this.spirit = 180; }
+  constructor(world) { this.world = world; this.paused = false; this.speed = 1; this.accumulator = 0; this.spirit = 180; this.maxSpirit = 180; this.regen = .6; }
   advance(seconds) {
     if (this.paused) return;
     this.accumulator += Math.min(seconds, .2) * this.speed;
@@ -252,7 +252,7 @@ export class Simulation {
   }
   singleStep() {
     this.world.step(.05);
-    this.spirit = Math.min(180, this.spirit + .6);
+    this.spirit = Math.min(this.maxSpirit, this.spirit + this.regen);
   }
   write(x, y, kind) {
     const i = this.world.index(x, y);

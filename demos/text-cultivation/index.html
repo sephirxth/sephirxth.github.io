@@ -31,6 +31,7 @@
           <label>示例 <select id="example"><option value="landscape" selected>山水</option><option value="opening">开场：剑修渡劫</option><option value="forest">火点木</option><option value="water">水与冰</option><option value="lightning">雷与金</option><option value="blank">空白天地</option></select></label>
         </div>
         <div class="feedback-controls" role="group" aria-label="声音与动态">
+          <button id="inner-toggle" type="button" aria-pressed="false" title="对着“我”滚轮一直往里推，也可以点这里">内观</button>
           <button id="sound-toggle" type="button" aria-pressed="false" title="开启材料声音">声音 关</button>
           <button id="motion-toggle" type="button" aria-pressed="true" title="切换减少动态效果">动态 完整</button>
         </div>
@@ -55,7 +56,7 @@
       <div class="touch-move" aria-label="移动我">
         <span>移动我</span><button type="button" data-move="left" aria-label="我向左">左</button><button type="button" data-move="up" aria-label="我向上">上</button><button type="button" data-move="down" aria-label="我向下">下</button><button type="button" data-move="right" aria-label="我向右">右</button><button type="button" id="write-ahead">写字</button>
       </div>
-      <p id="keyboard-help" class="keyboard-help">拖动写字，右键擦除。1–8 选材料，9 或 E 擦除。空格暂停，N 单步。方向键或 WASD 移动“我”，回车在身前写字。</p>
+      <p id="keyboard-help" class="keyboard-help">拖动写字，右键擦除。1–8 选材料，9 或 E 擦除，0 或 F 画阵。对着“我”滚轮往里推（或按 I）进入内观，Esc 出定。空格暂停，N 单步。方向键或 WASD 移动“我”，回车在身前写字。</p>
     </section>
     <section id="rules" class="rules">
       <div><h2>每个字，只看邻格。</h2><p>这是元胞自动机。天地分成小格，每一格按同一套局部规则更新。你写下材料，规则接着往下演。</p></div>
@@ -63,7 +64,9 @@
         <div><dt>热与相变</dt><dd>热量在上下左右传递。水高于 373 K 变汽，汽低于 280 K 成水；冰高于 273 K 融化。K 是温度单位，273 K 约为 0°C。上方空气更冷。</dd></div>
         <div><dt>燃烧与灭火</dt><dd>木高于 600 K 起火，有燃料才持续产热，燃尽留下灰。水、冰接触火会消耗燃料，自身也会受热。试着在木排中擦开一道空隙，阻断传热。</dd></div>
         <div><dt>雷与金</dt><dd>雷短暂放热，电荷沿相邻的金、水、冰传递，每一格都会衰减。金高于 1370 K 会熔化流动，冷却后凝固。土会下落、堆积，用来垒岸。</dd></div>
-        <div><dt>写字与灵力</dt><dd>每写一格消耗 1 点灵力，上限 180，每秒恢复 12。擦除免费，暂停时灵力也暂停。方向键移动“我”，回车在身前写字。这里没有战斗或通关目标。</dd></div>
+        <div><dt>写字与灵力</dt><dd>每写一格消耗 1 点灵力，上限 180，每秒恢复 12，内观之后还能提高。擦除免费，暂停时灵力也暂停。方向键移动“我”，回车在身前写字。这里没有战斗或通关目标。</dd></div>
+        <div><dt>内观与穴位</dt><dd>对着“我”滚轮一直往里推，越往里阻力越大，停下就会弹回，推破才进得去。下丹田、泥丸、膻中三个穴位连成小周天，灵气从下丹田沿督脉上行，经泥丸、膻中回到下丹田。每个穴位放一个字（耗 20 灵力）：前一穴的字生后一穴的字，灵气放大；克，则削弱。周天越旺，灵力上限越高、恢复越快。</dd></div>
+        <div><dt>阵法</dt><dd>选“阵”，在天地里画：一横为斩，劈开沿线的材料；圆为环，三角为爆，方为镇，属性取下丹田里的字；折线为雷，落在末端。每个阵耗费灵力，丹田无字时环、爆、镇不成。</dd></div>
       </dl>
     </section>
     <footer><p>独立网页实验，基于 v11 材料规则。沿用原型的材料和温度阈值，把连续粒子改成邻格运动，新增土与接触灭火；未包含原版的创世生态、渡劫与死亡。声音默认关闭，开启后可听见材料变化。画面仿磁青纸泥金写经，字形为马善政毛笔楷书（SIL OFL 1.1）。</p><a href="https://sephirxth.github.io/projects/text-cultivation/">阅读原型记录 ↗</a><span>游渊 YouYuan · 2026</span></footer>

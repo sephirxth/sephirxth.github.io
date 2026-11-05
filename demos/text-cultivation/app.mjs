@@ -1,8 +1,10 @@
 import { K, materials, World, Simulation, example } from './simulation.mjs';
-import { createGLRenderer } from './render-gl.mjs';
+import { createGLRenderer, GLYPH_INDEX } from './render-gl.mjs';
 import { createEffects } from './effects.mjs';
 import { createAudio } from './audio.mjs';
 import { createOpening } from './opening.mjs';
+import { createInner, SOCKETS, elementOf, relation } from './inner.mjs';
+import { recognize, plan, sigil, FORMATIONS } from './formation.mjs';
 
 const $ = id => document.getElementById(id);
 let canvas = $('field');
@@ -55,11 +57,14 @@ const baseStep = simulation.singleStep.bind(simulation);
 simulation.singleStep = () => { baseStep(); effects.sync(true); };
 const startRow = () => Math.max(2, Math.round(world.height * .62));
 const player = { x: Math.floor(world.width * .16), y: startRow(), dx: 1, dy: 0 };
+const FORMATION = 99;
 let selected = K.WATER, brush = 0, cursor = null, pointer = null, lastPoint = null;
 let lastFrame = performance.now(), lastReadout = 0, drawCredit = 0, previousEvent = 0;
 let fullMotion = !reduceMotion.matches, motionChosen = false, visible = true, dirty = true;
 let animation = 0, inFrame = false, spentUntil = 0, stageUntil = 0, dryAt = -1000;
-let lastReaction = '', reactionAt = -1000, holdUntil = 0, presentTime = 0;
+let lastReaction = '', reactionAt = -1000, holdUntil = 0, presentTime = 0, noteUntil = 0;
+// A message from inner sight or a formation stays a few seconds before world summaries return.
+function note(text, ms = 4500) { $('notice').textContent = text; noteUntil = performance.now() + ms; }
 const spiritGroup = $('spirit').closest('.spirit');
 const hints = {
   [K.WATER]: '水向低处流，遇热变汽，遇冷结冰。',
@@ -71,6 +76,7 @@ const hints = {
   [K.STEAM]: '汽会上升，在高处遇冷后凝成水。',
   [K.LIGHTNING]: '雷短暂放热，电荷沿相邻的金、水、冰传递。',
   [K.EMPTY]: '拖动擦除材料，不消耗灵力。',
+  [FORMATION]: '画阵施法：一横为斩，圆为环，三角为爆，方为镇，折线为雷。环、爆、镇的属性取下丹田里的字。',
 };
 const reactions = { ignite: '木起火了', boil: '水受热，化成汽', condense: '汽遇冷，凝成水', freeze: '水结成冰', thaw: '冰融成水', melt: '金受热熔化', solidify: '熔金冷却凝固', extinguish: '水把火熄灭了', lightning: '雷落下，电荷沿导体传递' };
 function status(text, duration = 1500) {
@@ -115,15 +121,17 @@ if (soundToggle) {
     updateActivity();
   });
 }
-const pigments = { [K.WATER]: '#8fd0ff', [K.FIRE]: '#ff7a45', [K.WOOD]: '#6fcf8a', [K.GOLD]: '#efc66a', [K.EARTH]: '#d49a5c', [K.ICE]: '#dcf4ff', [K.STEAM]: '#c9d5e6', [K.LIGHTNING]: '#cbb8ff', [K.EMPTY]: '#c4c9d4' };
-for (const [index, kind] of [K.WATER, K.FIRE, K.WOOD, K.GOLD, K.EARTH, K.ICE, K.STEAM, K.LIGHTNING, K.EMPTY].entries()) {
+const pigments = { [K.WATER]: '#8fd0ff', [K.FIRE]: '#ff7a45', [K.WOOD]: '#6fcf8a', [K.GOLD]: '#efc66a', [K.EARTH]: '#d49a5c', [K.ICE]: '#dcf4ff', [K.STEAM]: '#c9d5e6', [K.LIGHTNING]: '#cbb8ff', [K.EMPTY]: '#c4c9d4', [FORMATION]: '#f6d27e' };
+const palette = [K.WATER, K.FIRE, K.WOOD, K.GOLD, K.EARTH, K.ICE, K.STEAM, K.LIGHTNING, K.EMPTY, FORMATION];
+for (const [index, kind] of palette.entries()) {
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'material'; button.dataset.kind = kind;
-  button.style.setProperty('--material', materials[kind].color);
+  const key = String((index + 1) % 10), name = kind === FORMATION ? '阵法' : materials[kind].name;
+  button.style.setProperty('--material', materials[kind]?.color ?? '#a98a3e');
   button.style.setProperty('--pigment', pigments[kind]);
-  button.setAttribute('aria-label', `${materials[kind].name}，快捷键 ${index + 1}`);
-  button.setAttribute('aria-keyshortcuts', String(index + 1));
-  button.innerHTML = `<span class="glyph">${materials[kind].glyph || '擦除'}</span><span class="shortcut">${index + 1}</span>`;
+  button.setAttribute('aria-label', `${name}，快捷键 ${key}`);
+  button.setAttribute('aria-keyshortcuts', key);
+  button.innerHTML = `<span class="glyph">${kind === FORMATION ? '阵' : materials[kind].glyph || '擦除'}</span><span class="shortcut">${key}</span>`;
   button.addEventListener('click', () => selectMaterial(kind));
   $('materials').append(button);
 }
@@ -179,7 +187,7 @@ $('speed').addEventListener('change', event => { simulation.speed = Number(event
 $('brush').addEventListener('change', event => { brush = Number(event.target.value); wake(); });
 function reset() {
   example(world, $('example').value);
-  simulation.spirit = 180; simulation.accumulator = 0; previousEvent = 0;
+  simulation.spirit = simulation.maxSpirit; simulation.accumulator = 0; previousEvent = 0;
   pointer = null; lastPoint = null; drawCredit = 0;
   player.x = Math.floor(world.width * .16); player.y = startRow();
   effects.emit({ type: 'reset' });
@@ -190,12 +198,13 @@ function reset() {
   status('写下一个字，让它开始变化。', 2400);
   wake(); updateReadout();
 }
-$('reset').addEventListener('click', () => { endOpening(false); reset(); });
+$('reset').addEventListener('click', () => { endOpening(false); if (mode === 'inner') leaveInner(); reset(); });
 $('example').addEventListener('change', () => { if ($('example').value === 'opening') playOpening(); else { endOpening(false); reset(); } });
 // Opening: 我 rides a sword of 金 through the thunder tribulation, then the 山水 scene begins.
 let opening = null;
 function playOpening() {
   if (!effects.setStage || !fullMotion) { $('example').value = 'landscape'; reset(); return; }
+  if (mode === 'inner') leaveInner();
   effects.fx.clear();
   opening = createOpening({ renderer: effects, K, width: world.width, height: world.height, sound, mobile });
   effects.setStage(opening.stage);
@@ -212,6 +221,162 @@ function endOpening(startScene = true) {
   if (startScene) reset();
 }
 $('skip-opening').addEventListener('click', () => endOpening());
+// 内观: push into 我 against a resistance, then set characters into three acupoint sockets.
+const inner = effects.setStage ? createInner({ renderer: effects, K, width: world.width, height: world.height, mobile }) : null;
+let mode = 'world', pushLevel = 0, breakAt = -1, autoPush = false, pushThud = false, pushInputAt = -9;
+const innerToggle = $('inner-toggle');
+if (innerToggle && !inner) innerToggle.hidden = true;
+function applyMeridians() {
+  const total = inner ? inner.total : 0;
+  simulation.maxSpirit = 180 + Math.round(total * 40);
+  simulation.regen = .6 + total * .25;
+  simulation.spirit = Math.min(simulation.spirit, simulation.maxSpirit);
+}
+function enterInner() {
+  if (!inner || opening || mode === 'inner') return;
+  mode = 'inner'; pushLevel = 0; breakAt = -1; autoPush = false; pointer = null; formation = null;
+  effects.setPush(0); effects.fx.clear(); effects.fx.flash(.7);
+  effects.setStage(inner.stage); inner.enter();
+  innerToggle.textContent = '出定'; innerToggle.setAttribute('aria-pressed', 'true');
+  note('内观。选一个字，点穴位放进去（耗 20 灵力），右键取出。灵气沿小周天流转，相生的穴位相连更旺。滚轮向外或按 Esc 出定。');
+  sound('freeze', { x: player.x });
+  wake();
+}
+function leaveInner() {
+  if (mode !== 'inner') return;
+  mode = 'world'; inner.leave(); inner.hover(-1);
+  effects.setStage(null);
+  pushLevel = .5; pushInputAt = -9;
+  effects.fx.flash(.35);
+  innerToggle.textContent = '内观'; innerToggle.setAttribute('aria-pressed', 'false');
+  note(inner.total ? `出定。周天 ${inner.total.toFixed(2)}，灵力上限 ${simulation.maxSpirit}，每秒恢复 ${Math.round(simulation.regen * 20)}。` : '出定。穴位里还没有字。');
+  wake();
+}
+function pointF(event) { const r = canvas.getBoundingClientRect(); return { x: (event.clientX - r.left) / r.width * world.width, y: (event.clientY - r.top) / r.height * world.height }; }
+canvas.addEventListener('wheel', event => {
+  if (opening || !inner) return;
+  if (mode === 'inner') { event.preventDefault(); if (event.deltaY > 0) leaveInner(); return; }
+  const p = pointF(event), near = Math.hypot(p.x - player.x - .5, p.y - player.y - .5) < 3.5;
+  if (!near && pushLevel < .02) return;
+  event.preventDefault();
+  pushInputAt = presentTime;
+  if (event.deltaY < 0) {
+    // Each notch pushes less the deeper you are, and the membrane springs back between notches.
+    const notch = Math.min(1.5, -event.deltaY / 100);
+    pushLevel = Math.min(.99, pushLevel + .12 * notch * (1 - .6 * pushLevel) * (pushLevel > .72 ? 1.6 : 1));
+    if (pushLevel > .45 && !pushThud) { pushThud = true; sound('dry', { x: player.x }); }
+    if (pushLevel >= .8 && breakAt < 0) breakAt = presentTime;
+  } else pushLevel = Math.max(0, pushLevel - .2);
+  wake();
+}, { passive: false });
+innerToggle?.addEventListener('click', () => { if (mode === 'inner') leaveInner(); else if (!opening && inner) { autoPush = true; pushInputAt = presentTime; wake(); } });
+const relationNames = { generate: '相生', same: '同气', drain: '泄气', overcome: '相克', insulted: '被克' };
+const relationText = (a, b) => { const r = relation(a, b); return `${materials[a].glyph}→${materials[b].glyph} ${relationNames[r.kind]}×${r.factor}`; };
+function innerPointer(event) {
+  event.preventDefault();
+  const p = pointF(event), n = inner.hit(p.x, p.y);
+  if (n < 0) return;
+  const socket = SOCKETS[n];
+  if (event.button === 2 || selected === K.EMPTY) {
+    if (inner.remove(n)) { applyMeridians(); sound('erase', { x: p.x }); note(`取出${socket.name}里的字。周天 ${inner.total.toFixed(2)}。`); }
+    return;
+  }
+  if (!elementOf(selected)) { note('只有水、火、木、金、土能放进穴位（冰、汽算水，雷算木）。'); return; }
+  if (simulation.spirit < 20) { insufficient({ x: Math.floor(p.x), y: Math.floor(p.y) }); return; }
+  if (inner.place(n, selected)) {
+    simulation.spirit -= 20; applyMeridians();
+    sound('write', { kind: selected, x: p.x, y: 1, intensity: 1.2 });
+    const kinds = inner.kinds(), links = [];
+    if (kinds[(n + 2) % 3]) links.push(relationText(kinds[(n + 2) % 3], selected));
+    if (kinds[(n + 1) % 3]) links.push(relationText(selected, kinds[(n + 1) % 3]));
+    note(`${socket.name}放入「${materials[selected].glyph}」${links.length ? '：' + links.join('，') : ''}。周天 ${inner.total.toFixed(2)}，灵力上限 ${simulation.maxSpirit}，每秒恢复 ${Math.round(simulation.regen * 20)}。`);
+    spentUntil = performance.now() + 180;
+  }
+  wake(); updateReadout();
+}
+function innerHover(event) {
+  const p = pointF(event), n = inner.hit(p.x, p.y);
+  inner.hover(n);
+  canvas.style.cursor = n >= 0 ? 'pointer' : 'default';
+  if (n >= 0) { const kind = inner.kinds()[n]; status(`${SOCKETS[n].name}：${kind ? `「${materials[kind].glyph}」` : '空'}`, 1200); $('cell-info').textContent = `${SOCKETS[n].name} · ${SOCKETS[n].role}`; }
+  wake();
+}
+if (new URLSearchParams(location.search).has('debug')) globalThis.__tc = { get state() { return { mode, pushLevel: +pushLevel.toFixed(3), breakAt: +breakAt.toFixed(2), presentTime: +presentTime.toFixed(2), opening: Boolean(opening), total: inner?.total ?? 0 }; } };
+// 阵法: draw with the 阵 tool; the stroke is recognised and cast when released.
+let formation = null;
+const pendingCasts = [];
+function startFormation(event) {
+  formation = { id: event.pointerId, pts: [pointF(event)] };
+  canvas.setPointerCapture(event.pointerId);
+}
+function extendFormation(event) {
+  const p = pointF(event), last = formation.pts.at(-1);
+  if (Math.hypot(p.x - last.x, p.y - last.y) < .18) return;
+  formation.pts.push(p);
+  effects.fx?.trail(last.x, last.y, p.x, p.y, K.GOLD, .2, 1.8);
+  if (effects.fx && Math.random() < .3) effects.fx.add(effects.fx.glint(p.x, p.y, [1, .86, .5], .18));
+  wake();
+}
+function finishFormation() {
+  const pts = formation.pts, end = pts.at(-1); formation = null;
+  const result = recognize(pts);
+  if (result) { castFormation(result); return; }
+  if (pts.length > 4) {
+    status('阵形不成', 1400);
+    note('阵形不成。一横为斩，圆为环，三角为爆，方为镇，折线为雷。');
+    effects.emit({ type: 'dry', x: Math.floor(end.x), y: Math.floor(end.y) }); sound('dry', { x: end.x });
+  }
+}
+function castFormation(result) {
+  const f = FORMATIONS[result.shape], root = inner?.root || 0, c = result.center, at = { x: Math.floor(c.x), y: Math.floor(c.y) };
+  if (f.needsRoot && !elementOf(root)) {
+    status('阵法无根', 1600);
+    note(`「${f.name}」要从下丹田取属性。滚轮对着“我”一直往里推，或点“内观”，在下丹田放一个字。`);
+    effects.emit({ type: 'dry', ...at }); sound('dry', at); return;
+  }
+  if (simulation.spirit < f.cost) { insufficient(at); return; }
+  simulation.spirit -= f.cost; spentUntil = performance.now() + 300;
+  const fx = effects.fx;
+  if (fx) {
+    const outline = sigil(result);
+    fx.sigil(outline, { width: result.shape === 'line' ? .18 : .12, life: 1.3 });
+    fx.add({ type: fx.kinds.glyph, glyph: GLYPH_INDEX[f.glyph], layer: 'add', x: c.x, y: c.y, vy: -.5, s: 1.5, life: 1.4, col: [1, .86, .52], a: 1, fadeIn: .08 });
+    const rune = elementOf(root) ? GLYPH_INDEX[materials[root].glyph] : undefined;
+    if (rune !== undefined && f.needsRoot) for (let i = 0; i < 8; i++) {
+      const q = outline[Math.floor(i / 8 * (outline.length - 1))];
+      fx.add({ type: fx.kinds.glyph, glyph: rune, layer: 'add', x: q.x, y: q.y, s: .45, life: 1.1, col: [1, .8, .45], a: .9, fadeIn: .1 + i * .04 });
+    }
+    fx.flash(.18);
+  }
+  sound('solidify', { x: c.x, intensity: 1.2 });
+  note(`${f.name}：${f.text}（耗 ${f.cost} 灵力）。`);
+  status(`阵成：${f.name}`, 1500);
+  pendingCasts.push({ at: presentTime + .32, run: () => executeSpell(result, root) });
+  wake(); updateReadout();
+}
+function executeSpell(result, root) {
+  const p = plan(result, root, K, world), fx = effects.fx, c = result.center;
+  for (const [x, y] of p.cut) {
+    const old = world.kind[world.index(x, y)];
+    if (old && simulation.write(x, y, K.EMPTY)) effects.emit({ type: 'erase', x, y, kind: old });
+  }
+  for (const [x, y, kind] of p.cells) {
+    if (world.kind[world.index(x, y)] !== K.EMPTY) continue;
+    world.set(x, y, kind); effects.emit({ type: 'write', x, y, kind });
+  }
+  if (p.strike) {
+    let [x, y] = p.strike;
+    while (y > 0 && world.kind[world.index(x, y)]) y--;
+    if (!world.kind[world.index(x, y)]) world.set(x, y, K.LIGHTNING);
+  }
+  if (fx) {
+    if (result.shape === 'triangle') { fx.flash(.4); fx.shake(.22); fx.burst(18, () => fx.spark(c.x, c.y, [1, .8, .4], 1.6)); }
+    else if (result.shape === 'line') { const { from, to } = result; for (let i = 0; i < 14; i++) { const k = Math.random(); fx.add(fx.spark(from.x + (to.x - from.x) * k, from.y + (to.y - from.y) * k, [1, .9, .6], 1.1)); } fx.shake(.1); }
+    else fx.flash(.2);
+  }
+  sound({ line: 'erase', circle: 'write', triangle: 'ignite', square: 'solidify', zigzag: 'select' }[result.shape], { kind: root || K.GOLD, x: c.x, intensity: 1.5 });
+  wake();
+}
 setPause(reduceMotion.matches);
 function fit() {
   const rect = canvas.getBoundingClientRect(), ratio = Math.min(devicePixelRatio || 1, 2);
@@ -226,8 +391,8 @@ function render() {
 }
 function updateReadout() {
   $('clock').textContent = opening ? `开场 ${opening.time.toFixed(1)} 秒` : `${simulation.paused ? '已暂停' : '演化'} ${world.time.toFixed(1)} 秒`;
-  $('spirit').value = simulation.spirit;
-  $('spirit-number').textContent = `${Math.floor(simulation.spirit)} / 180`;
+  $('spirit').max = simulation.maxSpirit; $('spirit').value = simulation.spirit;
+  $('spirit-number').textContent = `${Math.floor(simulation.spirit)} / ${simulation.maxSpirit}`;
   if (spiritGroup) spiritGroup.dataset.state = performance.now() < spentUntil ? 'spent' : simulation.spirit < 20 ? 'low' : 'recovering';
   if (cursor) {
     const i = world.index(cursor.x, cursor.y), kind = world.kind[i];
@@ -235,7 +400,7 @@ function updateReadout() {
   } else $('cell-info').textContent = '拖动写字 · 右键擦除';
   const events = world.events;
   const total = events.ignited + events.boiled + events.condensed + events.extinguished + events.melted;
-  if (total > previousEvent) {
+  if (total > previousEvent && performance.now() > noteUntil) {
     $('notice').textContent = `这片天地已发生：${[['木起火', events.ignited], ['水变汽', events.boiled], ['汽成水', events.condensed], ['接触灭火', events.extinguished], ['金熔化', events.melted]].filter(([, n]) => n).map(([s, n]) => `${s} ${n} 次`).join('，')}。`;
     previousEvent = total;
   }
@@ -250,7 +415,7 @@ function insufficient(p) {
   const now = performance.now();
   if (now - dryAt < 650) return;
   dryAt = now;
-  $('notice').textContent = '灵力用完了，等待恢复，或先擦除材料。暂停时可继续演化来恢复。';
+  note('灵力用完了，等待恢复，或先擦除材料。暂停时可继续演化来恢复。');
   status(simulation.paused ? '灵力不足。继续演化后会恢复。' : '灵力不足，正在恢复。', 1800);
   effects.emit({ type: 'dry', ...p }); sound('dry', p); wake();
 }
@@ -282,19 +447,24 @@ function paintLine(start, end, kind) {
 }
 canvas.addEventListener('pointerdown', event => {
   if (opening) { event.preventDefault(); endOpening(); return; }
-  if ((event.button !== 0 && event.button !== 2) || pointer) return;
+  if (mode === 'inner') { innerPointer(event); return; }
+  if ((event.button !== 0 && event.button !== 2) || pointer || formation) return;
   event.preventDefault(); canvas.focus({ preventScroll: true });
+  if (selected === FORMATION && event.button === 0 && effects.fx) { startFormation(event); cursor = point(event); return; }
   pointer = { id: event.pointerId, kind: event.button === 2 ? K.EMPTY : selected };
   canvas.setPointerCapture(event.pointerId); cursor = point(event); lastPoint = cursor; drawCredit = 0;
   acknowledgeWrite(paintAt(cursor, pointer.kind), cursor, pointer.kind); wake(); updateReadout();
 });
 canvas.addEventListener('pointermove', event => {
+  if (mode === 'inner') { innerHover(event); return; }
+  if (formation) { if (formation.id === event.pointerId) { extendFormation(event); cursor = point(event); } return; }
   if (pointer && pointer.id !== event.pointerId) return;
   cursor = point(event);
   if (pointer && pointer.id === event.pointerId && (cursor.x !== lastPoint.x || cursor.y !== lastPoint.y)) { paintLine(lastPoint, cursor, pointer.kind); lastPoint = cursor; drawCredit = 0; }
   wake();
 });
 function releasePointer(event) {
+  if (formation && event.pointerId === formation.id) { finishFormation(); wake(); return; }
   if (pointer && event.pointerId === pointer.id) { pointer = null; lastPoint = null; drawCredit = 0; wake(); updateReadout(); }
 }
 canvas.addEventListener('pointerup', releasePointer);
@@ -321,8 +491,11 @@ document.addEventListener('keydown', event => {
   if (event.ctrlKey || event.altKey || event.metaKey || /INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) return;
   if (opening && !['Shift', 'Tab'].includes(event.key)) { event.preventDefault(); endOpening(); return; }
   const key = event.key.toLowerCase();
-  if (/^[1-9]$/.test(key)) selectMaterial([K.WATER, K.FIRE, K.WOOD, K.GOLD, K.EARTH, K.ICE, K.STEAM, K.LIGHTNING, K.EMPTY][Number(key) - 1]);
+  if (key === 'escape' && mode === 'inner') { event.preventDefault(); leaveInner(); return; }
+  if (/^[0-9]$/.test(key)) selectMaterial(palette[(Number(key) + 9) % 10]);
   else if (key === 'e') selectMaterial(K.EMPTY);
+  else if (key === 'f') selectMaterial(FORMATION);
+  else if (key === 'i') { if (mode === 'inner') leaveInner(); else if (!opening && inner) { autoPush = true; pushInputAt = presentTime; wake(); } }
   else if (key === ' ' && event.target.tagName !== 'BUTTON') { event.preventDefault(); setPause(!simulation.paused); }
   else if (key === 'n') { setPause(true); singleStep(); }
   else if (key === 'enter' && event.target === canvas) { event.preventDefault(); writeAhead(); }
@@ -354,19 +527,36 @@ function frame(now) {
   lastFrame = now;
   // Presentation time advances like the renderer's clock, so the hold matches the intro on slow devices too.
   presentTime += Math.min(.05, elapsed);
-  if (opening) { opening.update(Math.min(.05, elapsed)); if (opening.done) endOpening(); }
+  const dt = Math.min(.05, elapsed);
+  if (opening) { opening.update(dt); if (opening.done) endOpening(); }
+  else if (mode === 'inner') { inner.update(dt); simulation.spirit = Math.min(simulation.maxSpirit, simulation.spirit + simulation.regen * 20 * dt); }
   else if (presentTime >= holdUntil) simulation.advance(elapsed);
+  if (mode === 'world' && inner && !opening) {
+    if (autoPush) {
+      // The button pushes for you, with the same stall before the membrane gives.
+      pushLevel = Math.min(.99, pushLevel + dt * .8 * (1 - .65 * pushLevel) * (pushLevel > .5 && pushLevel < .62 ? .3 : 1));
+      if (pushLevel > .45 && !pushThud) { pushThud = true; sound('dry', { x: player.x }); }
+      if (pushLevel >= .8 && breakAt < 0) breakAt = presentTime;
+    }
+    if (breakAt >= 0) { pushLevel = Math.min(1, pushLevel + dt * 2.5); if (presentTime - breakAt > .28) enterInner(); }
+    else if (!autoPush) pushLevel = Math.max(0, pushLevel - dt * (.35 * pushLevel + .02));
+    if (pushLevel < .3) pushThud = false;
+    if (pushLevel > .04 && breakAt < 0) status(`内观 ${Math.round(pushLevel / .8 * 100)}%`, 350);
+    effects.setPush?.(pushLevel, 1 + 1.8 * Math.pow(pushLevel, 1.4));
+    if (pushLevel > .2 && (autoPush || breakAt >= 0 || presentTime - pushInputAt < .4)) effects.fx?.shake(.02 + pushLevel * .06);
+  }
+  for (let i = pendingCasts.length - 1; i >= 0; i--) if (presentTime >= pendingCasts[i].at) pendingCasts.splice(i, 1)[0].run();
   const events = consumeEffects();
   if (pointer && cursor) {
     drawCredit += Math.min(.2, elapsed) * 20;
     if (drawCredit >= 1) { acknowledgeWrite(paintAt(cursor, pointer.kind), cursor, pointer.kind); drawCredit %= 1; }
   }
   effects.update(Math.min(.05, elapsed), { paused: simulation.paused, player });
-  if (!simulation.paused || pointer || dirty || effects.active || events) render();
+  if (!simulation.paused || pointer || dirty || effects.active || events || pushLevel > 0 || formation) render();
   if ((stageUntil && now >= stageUntil) || (spentUntil && now >= spentUntil) || now - lastReadout > 160) {
     if (spentUntil && now >= spentUntil) spentUntil = 0;
     updateReadout(); lastReadout = now;
   }
   inFrame = false;
-  if (!simulation.paused || pointer || effects.active || dirty || stageUntil > now || spentUntil > now) animation = requestAnimationFrame(frame);
+  if (!simulation.paused || pointer || effects.active || dirty || stageUntil > now || spentUntil > now || pushLevel > 0 || pendingCasts.length || formation || mode === 'inner') animation = requestAnimationFrame(frame);
 }

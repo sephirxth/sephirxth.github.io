@@ -62,7 +62,10 @@ meter::-moz-meter-bar{background:#5c6b4c;transition:background-color 160ms}
 .spirit[data-state=low]{color:#8a4b2d}
 .spirit[data-state=low] meter::-moz-meter-bar,.spirit[data-state=spent] meter::-moz-meter-bar{background:#9a6034}
 output{min-width:58px}
-.materials{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:7px;padding:13px 0 11px}
+.materials{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:7px;padding:13px 0 11px}
+.material[data-kind='99']{border-color:#5a4a26;background:#1a1d2e}
+.material[data-kind='99'][aria-pressed=true]{background:#2a2414;border-color:#e6c06a}
+#inner-toggle[aria-pressed=true]{background:#182a50;color:#f3e3bb;border-color:#c9a557}
 .material{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;min-width:0;min-height:53px;padding:8px 6px;border-color:#24345a;border-radius:2px;background:var(--indigo)}
 .material::after{content:'';position:absolute;left:25%;right:25%;bottom:5px;height:1px;background:var(--pigment,var(--material));opacity:0;transform:scaleX(.35);transition:opacity 150ms,transform 180ms var(--ease)}
 .material .glyph{font-family:BrushKai,'Noto Serif CJK SC',serif;font-size:30px;line-height:1.1;color:var(--pigment,var(--material));transition:color 140ms,text-shadow 160ms}

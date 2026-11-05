@@ -1,9 +1,9 @@
 // WebGL2 renderer: indigo sutra paper (磁青纸), mineral-pigment glyphs, firelight, flames, fluids.
 // It only reads World state. Visual randomness uses Math.random(), never World.random().
-const GLYPHS = ['我', '水', '火', '木', '金', '土', '冰', '汽', '雷', '灰', '燃', '沸', '凝', '冻', '融', '熔', '铸', '熄', '霆', '剑', '渡', '劫', '飞', '升'];
+const GLYPHS = ['我', '水', '火', '木', '金', '土', '冰', '汽', '雷', '灰', '燃', '沸', '凝', '冻', '融', '熔', '铸', '熄', '霆', '剑', '渡', '劫', '飞', '升', '生', '克', '阵', '内', '观', '斩', '环', '爆', '镇'];
 export const GLYPH_INDEX = Object.fromEntries(GLYPHS.map((ch, i) => [ch, i]));
 const LABELS = { ignite: 10, boil: 11, condense: 12, freeze: 13, thaw: 14, melt: 15, solidify: 16, extinguish: 17, lightning: 18 };
-const ATLAS_COLS = 8, ATLAS_ROWS = 3, ATLAS_CELL = 128, SPREAD = 16;
+const ATLAS_COLS = 8, ATLAS_ROWS = 5, ATLAS_CELL = 128, SPREAD = 16;
 const PLAYER = 11;
 // Pigments as linear-ish display colours on the indigo ground.
 const PIGMENT = {
@@ -474,22 +474,41 @@ void main(){ vec2 h = uTexel*.5;
   s += texture(uTex, vUV + vec2(h.x*2., 0.)) + texture(uTex, vUV + vec2(h.x, -h.y))*2. + texture(uTex, vUV + vec2(0., -h.y*2.)) + texture(uTex, vUV + vec2(-h.x, -h.y))*2.;
   o = s/12.; }`;
 const COMPOSITE_FS = HEAD + `in vec2 vUV; out vec4 o;
-uniform sampler2D uScene, uEmis, uBloom, uLight; uniform float uTime, uFlash, uBloomAmt, uHaze; uniform vec2 uShake, uRes;
+uniform sampler2D uScene, uEmis, uBloom, uLight; uniform float uTime, uFlash, uBloomAmt, uHaze, uPush, uZoom; uniform vec2 uShake, uRes, uZoomC;
 ${NOISE}
 void main(){
   vec2 uv = vUV + uShake;
+  vec2 asp = vec2(uRes.x/uRes.y, 1.);
+  float dc = length((vUV - uZoomC)*asp);
+  if (uPush > .001) {
+    // Pushing into 我: magnify around it, with a trembling membrane ring.
+    uv = uZoomC + (uv - uZoomC)/uZoom;
+    float ring = .32 - .22*uPush;
+    uv += normalize((vUV - uZoomC)*asp + 1e-5)/asp*sin(dc*70. - uTime*9.)*exp(-abs(dc - ring)*22.)*.006*uPush;
+  }
   float heat = texture(uLight, uv - vec2(0., .03)).a;
   vec2 n = vec2(vnoise(uv*vec2(40., 23.) + vec2(0., uTime*2.6)), vnoise(uv*vec2(33., 20.) + vec2(5.2, uTime*2.1))) - .5;
   vec2 off = n*heat*uHaze;
   vec3 scene = texture(uScene, uv + off).rgb;
   vec3 emis = texture(uEmis, uv + off*.5).rgb;
   vec3 bloom = texture(uBloom, uv).rgb;
+  if (uPush > .001) {
+    vec2 dir = (uv - uZoomC)*uPush*.05;
+    vec3 acc = scene; float wsum = 1.;
+    for (int i = 1; i < 6; i++) { float f = float(i)/5.; acc += texture(uScene, uv - dir*f).rgb*(1. - f*.5); wsum += 1. - f*.5; }
+    scene = acc/wsum;
+    scene.r = mix(scene.r, texture(uScene, uv + dir*.18).r, .6*uPush);
+    scene.b = mix(scene.b, texture(uScene, uv - dir*.18).b, .6*uPush);
+    emis *= 1. + uPush*.8;
+  }
   vec3 c = scene + emis + bloom*uBloomAmt;
   c += uFlash*vec3(.07,.06,.13);
   vec3 hi = max(c - .82, 0.);
   c = min(c, .82) + .18*(1. - exp(-hi/.18));
   float v = length((vUV - .5)*vec2(1., .9));
   c *= 1. - .22*smoothstep(.35, .85, v);
+  c *= 1. - uPush*.62*smoothstep(.04, .55, dc);
+  c += uPush*uPush*vec3(.5,.36,.2)*(1. - smoothstep(0., .18, dc));
   c += (hash12(gl_FragCoord.xy + fract(uTime)*97.) - .5)*.018;
   o = vec4(c, 1.);
 }`;
@@ -500,6 +519,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   let motion = true, clock = 0, flash = 0, shake = 0, quality = mobile ? .55 : 1;
   let atlasReady = false, atlasFont = '', sizeKey = '', paperKey = '';
   let resetPending = true, introAt = -10, serial = 0, arcsAt = 0, eventBudget = 0, stage = null;
+  const push = { p: 0, zoom: 1 };
   const recs = new Map(), ghosts = [], parts = [], bolts = [], trail = [];
   const erasedCells = new Set(), labelAt = {};
   const person = { x: 0, y: 0, ready: false };
@@ -989,6 +1009,13 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       d[o + 4] = p.col[0]; d[o + 5] = p.col[1]; d[o + 6] = p.col[2]; d[o + 7] = a;
       d[o + 8] = rot; d[o + 9] = p.type; d[o + 10] = p.seed; d[o + 11] = p.glyph;
     }
+    if (stage?.marks) for (const m of stage.marks) {
+      const b = lists[m.layer] || partsOver; if (b.n >= b.max) continue;
+      const o = b.n++ * 12, d = b.data, u = stage.unit ?? 1;
+      d[o] = m.x * u; d[o + 1] = m.y * u; d[o + 2] = m.s * u; d[o + 3] = (m.sy ?? m.s) * u;
+      d[o + 4] = m.col[0]; d[o + 5] = m.col[1]; d[o + 6] = m.col[2]; d[o + 7] = m.a ?? 1;
+      d[o + 8] = m.rot ?? 0; d[o + 9] = m.type; d[o + 10] = m.seed ?? .5; d[o + 11] = m.glyph ?? 0;
+    }
     // ribbons: bolts (additive) then brush trails (alpha)
     ribbonCount = 0;
     const cw = canvas.width / W, ch = canvas.height / H, unit = Math.min(cw, ch);
@@ -1101,6 +1128,9 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     u = use(prog.composite, { uScene: scene.tex, uEmis: emis.tex, uBloom: bloom[0].tex, uLight: lightTex });
     common(u);
     gl.uniform1f(u.uBloomAmt, 1.05); gl.uniform1f(u.uHaze, motion ? .0065 : 0);
+    const pz = push.p > .001 ? push : { p: 0, zoom: 1 };
+    gl.uniform1f(u.uPush, pz.p); gl.uniform1f(u.uZoom, pz.zoom ?? 1);
+    gl.uniform2f(u.uZoomC, (person.x + .5) / W, 1 - (person.y + .5) / H);
     const sh = shake > 0 && motion ? Math.min(1, shake / .12) * .0035 : 0;
     gl.uniform2f(u.uShake, Math.sin(clock * 91) * sh, Math.cos(clock * 83) * sh * .8);
     fullscreen();
@@ -1113,11 +1143,16 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     get active() { return Boolean(stage) || parts.length > 0 || bolts.length > 0 || ghosts.length > 0 || trail.length > 0 || flash > 0 || personMoving; },
     // The opening drives the renderer through a stage of actors and these effects.
     setStage(value) { stage = value || null; },
+    // Push toward 我 before inner sight: p in 0..1, zoom >= 1.
+    setPush(p, zoom = 1) { push.p = motion ? p : 0; push.zoom = motion ? zoom : 1; },
+    get player() { return { x: person.x, y: person.y }; },
     fx: {
       strike, add, burst,
       ember, spark, glint, smoke, steamPuff, drop, shard,
       trail(x0, y0, x1, y1, kind, w = .3, life = 1.1) { trail.push({ x0, y0, x1, y1, kind, t: clock, w, life }); if (trail.length > 200) trail.shift(); },
       flash(v) { flash = Math.max(flash, motion ? v : Math.min(.3, v)); },
+      // A formation line in gold that holds, then fades (no flicker).
+      sigil(pts, { width = .12, col = [1, .82, .42], life = 1.2 } = {}) { bolts.push({ pts, width, col, life, age: 0, flicker: false }); },
       shake(v) { if (motion) shake = Math.max(shake, v); },
       clear() { parts.length = 0; bolts.length = 0; trail.length = 0; flash = 0; shake = 0; },
       kinds,
