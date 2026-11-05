@@ -295,3 +295,24 @@ test('ice stays put in air and floats up only through water', () => {
   const at = pool.kind.indexOf(K.ICE);
   assert.equal(Math.floor(at / pool.width), 2, 'ice rises to the water surface and stops there');
 });
+
+test('wind carries steam downwind and decays when it stops', () => {
+  const world = new World(24, 8, { ambient: false });
+  world.set(4, 6, K.STEAM, { temp: 300 });
+  for (let i = 0; i < 30; i++) { world.addWind(8, 4, 12, 1.6, 0); world.step(); }
+  const at = world.kind.indexOf(K.STEAM);
+  assert.ok(at % world.width >= 10, `steam moved right to ${at % world.width}`);
+  for (let i = 0; i < 120; i++) world.step();
+  assert.equal(world.windActive, false, 'wind dies away');
+});
+
+test('wind fans a flame along a wooden row', () => {
+  const burn = windy => {
+    const world = new World(30, 6, { ambient: false });
+    for (let x = 3; x < 28; x++) world.set(x, 4, K.WOOD);
+    world.set(2, 4, K.FIRE, { fuel: 5 });
+    for (let i = 0; i < 24; i++) { if (windy) world.addWind(15, 4, 16, 1.4, 0); world.step(); }
+    return world.events.ignited;
+  };
+  assert.ok(burn(true) > burn(false) + 2, `windy ${burn(true)} vs still ${burn(false)}`);
+});

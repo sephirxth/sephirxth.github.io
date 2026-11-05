@@ -15,6 +15,8 @@ export const materials = [
 ];
 // uid follows a cell through swaps so a renderer can track motion and state changes; rules never read it.
 const fields = ['kind', 'temp', 'mass', 'fuel', 'charge', 'age', 'residue', 'uid'];
+// How readily wind carries each kind; burning wood (fire with residue) stays put.
+const WIND_MOBILITY = { 1: .5, 2: 1, 5: .35, 7: 1.2, 9: .9, 10: .15 };
 const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
 
 export class World {
@@ -30,6 +32,10 @@ export class World {
     this.ambient = ambient;
     this.heat = new Float64Array(this.size);
     this.nextCharge = new Float64Array(this.size);
+    // Wind is a field over the grid, not a property carried by cells; spells add to it and it decays.
+    this.windX = new Float32Array(this.size);
+    this.windY = new Float32Array(this.size);
+    this.windActive = false;
     this.moved = new Uint8Array(this.size);
     this.tick = 0;
     this.time = 0;
@@ -64,6 +70,19 @@ export class World {
     this.residue[i] = props.residue ?? 0;
     this.uid[i] = this.nextUid++;
     return true;
+  }
+  addWind(cx, cy, radius, vx, vy) {
+    const r = Math.max(.5, radius);
+    for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(this.height - 1, Math.ceil(cy + r)); y++) {
+      for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(this.width - 1, Math.ceil(cx + r)); x++) {
+        const d = Math.hypot(x + .5 - cx, y + .5 - cy);
+        if (d > r) continue;
+        const i = y * this.width + x, f = 1 - d / r;
+        this.windX[i] = clamp(this.windX[i] + vx * f, -3, 3);
+        this.windY[i] = clamp(this.windY[i] + vy * f, -3, 3);
+      }
+    }
+    this.windActive = true;
   }
   totalMass() { return this.mass.reduce((sum, n) => sum + n, 0); }
   count(kind) { return this.kind.reduce((n, k) => n + (k === kind), 0); }
@@ -235,8 +254,36 @@ export class World {
         }
       }
     }
+    if (this.windActive) this.blow(dt, attempt);
     this.tick++;
     this.time += dt;
+  }
+  blow(dt, attempt) {
+    let any = false;
+    const decay = Math.exp(-dt * 1.6);
+    for (let i = 0; i < this.size; i++) {
+      const wx = this.windX[i], wy = this.windY[i];
+      if (wx === 0 && wy === 0) continue;
+      const s = Math.hypot(wx, wy);
+      if (s < .05) { this.windX[i] = this.windY[i] = 0; continue; }
+      any = true;
+      this.windX[i] = wx * decay; this.windY[i] = wy * decay;
+      const kind = this.kind[i];
+      if (!kind || this.moved[i]) continue;
+      const x = i % this.width, y = Math.floor(i / this.width), ax = Math.abs(wx), ay = Math.abs(wy);
+      const mx = ax > ay * .5 ? Math.sign(wx) : 0, my = ay > ax * .5 ? Math.sign(wy) : 0;
+      // Fanned flames heat whatever lies downwind, so fire runs with the wind.
+      if (kind === K.FIRE && s > .2) {
+        const n = this.index(x + mx, y + my);
+        if (n >= 0 && this.kind[n]) this.temp[n] = Math.min(6000, this.temp[n] + s * 60);
+      }
+      const mobility = kind === K.FIRE && this.residue[i] > 0 ? 0 : WIND_MOBILITY[kind] || 0;
+      if (!mobility || this.random() >= Math.min(.9, s * mobility)) continue;
+      if (!attempt(i, x + mx, y + my, () => false) && mx && my) {
+        if (!attempt(i, x + mx, y, () => false)) attempt(i, x, y + my, () => false);
+      }
+    }
+    this.windActive = any;
   }
 }
 

@@ -4,7 +4,7 @@
 // raises the world's spirit cap and regeneration. Rendering goes through the stage.
 import { GLYPH_INDEX } from './render-gl.mjs';
 
-const ELEMENT = { 1: 'water', 2: 'fire', 3: 'wood', 4: 'metal', 5: 'earth', 6: 'water', 7: 'water', 8: 'wood' };
+const ELEMENT = { 1: 'water', 2: 'fire', 3: 'wood', 4: 'metal', 5: 'earth', 6: 'water', 7: 'water', 8: 'wood', 9: 'earth', 10: 'metal' };
 const GENERATES = { wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water', water: 'wood' };
 const OVERCOMES = { wood: 'earth', earth: 'water', water: 'fire', fire: 'metal', metal: 'wood' };
 const QI_COLOR = { water: [.45, .78, 1], fire: [1, .48, .18], wood: [.45, .9, .55], metal: [1, .84, .42], earth: [.92, .66, .36] };
@@ -27,7 +27,7 @@ export function circulation(kinds) {
   return total;
 }
 export const SOCKETS = [
-  { name: '下丹田', role: '精，周天的起点；阵法从这里取属性' },
+  { name: '下丹田', role: '精，周天的起点' },
   { name: '泥丸', role: '神，督脉上行到这里' },
   { name: '膻中', role: '气，任脉下行经过这里' },
 ];

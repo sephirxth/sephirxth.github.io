@@ -66,6 +66,13 @@ output{min-width:58px}
 .material[data-kind='99']{border-color:#5a4a26;background:#1a1d2e}
 .material[data-kind='99'][aria-pressed=true]{background:#2a2414;border-color:#e6c06a}
 #inner-toggle[aria-pressed=true]{background:#182a50;color:#f3e3bb;border-color:#c9a557}
+.satchel{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 0 10px;font-size:12px;color:var(--soft)}
+.satchel-label{font-family:BrushKai,serif;font-size:18px;color:#8f7744;letter-spacing:.1em}
+.satchel-items{display:flex;gap:6px;flex-wrap:wrap}
+.satchel-item{min-width:40px;min-height:40px;padding:4px 8px;font-family:BrushKai,serif;font-size:24px;line-height:1;color:var(--pigment);background:var(--indigo);border-color:#24345a}
+.satchel-item:hover{background:#172748;border-color:#3a4d78}
+.satchel-item[aria-pressed=true]{border-color:var(--leaf);background:#182a50;box-shadow:0 0 14px -5px var(--pigment)}
+.satchel[data-empty=false] .satchel-hint{display:none}
 .material{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;min-width:0;min-height:53px;padding:8px 6px;border-color:#24345a;border-radius:2px;background:var(--indigo)}
 .material::after{content:'';position:absolute;left:25%;right:25%;bottom:5px;height:1px;background:var(--pigment,var(--material));opacity:0;transform:scaleX(.35);transition:opacity 150ms,transform 180ms var(--ease)}
 .material .glyph{font-family:BrushKai,'Noto Serif CJK SC',serif;font-size:30px;line-height:1.1;color:var(--pigment,var(--material));transition:color 140ms,text-shadow 160ms}

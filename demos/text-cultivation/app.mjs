@@ -4,7 +4,7 @@ import { createEffects } from './effects.mjs';
 import { createAudio } from './audio.mjs';
 import { createOpening } from './opening.mjs';
 import { createInner, SOCKETS, elementOf, relation } from './inner.mjs';
-import { recognize, plan, sigil, FORMATIONS } from './formation.mjs';
+import { recognize, cast, captureFrom, affinity, powerOf, comboKey, RUNE_OF, RUNES, COMBOS, INK_PER_CELL } from './formation.mjs';
 
 const $ = id => document.getElementById(id);
 let canvas = $('field');
@@ -76,7 +76,7 @@ const hints = {
   [K.STEAM]: '汽会上升，在高处遇冷后凝成水。',
   [K.LIGHTNING]: '雷短暂放热，电荷沿相邻的金、水、冰传递。',
   [K.EMPTY]: '拖动擦除材料，不消耗灵力。',
-  [FORMATION]: '画阵施法：一横为斩，圆为环，三角为爆，方为镇，折线为雷。环、爆、镇的属性取下丹田里的字。',
+  [FORMATION]: '画符：三角为火，弧为风（从起笔吹向收笔），方为土。符悬停片刻时在上面再画一个就叠成阵。闭合的圆收字进字囊。笔画越长越耗灵力。',
 };
 const reactions = { ignite: '木起火了', boil: '水受热，化成汽', condense: '汽遇冷，凝成水', freeze: '水结成冰', thaw: '冰融成水', melt: '金受热熔化', solidify: '熔金冷却凝固', extinguish: '水把火熄灭了', lightning: '雷落下，电荷沿导体传递' };
 function status(text, duration = 1500) {
@@ -126,12 +126,12 @@ const palette = [K.WATER, K.FIRE, K.WOOD, K.GOLD, K.EARTH, K.ICE, K.STEAM, K.LIG
 for (const [index, kind] of palette.entries()) {
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'material'; button.dataset.kind = kind;
-  const key = String((index + 1) % 10), name = kind === FORMATION ? '阵法' : materials[kind].name;
+  const key = String((index + 1) % 10), name = kind === FORMATION ? '画符' : materials[kind].name;
   button.style.setProperty('--material', materials[kind]?.color ?? '#a98a3e');
   button.style.setProperty('--pigment', pigments[kind]);
   button.setAttribute('aria-label', `${name}，快捷键 ${key}`);
   button.setAttribute('aria-keyshortcuts', key);
-  button.innerHTML = `<span class="glyph">${kind === FORMATION ? '阵' : materials[kind].glyph || '擦除'}</span><span class="shortcut">${key}</span>`;
+  button.innerHTML = `<span class="glyph">${kind === FORMATION ? '符' : materials[kind].glyph || '擦除'}</span><span class="shortcut">${key}</span>`;
   button.addEventListener('click', () => selectMaterial(kind));
   $('materials').append(button);
 }
@@ -169,6 +169,7 @@ function consumeEffects() {
   for (const event of pending) {
     effects.emit(event);
     sound(event.type, event);
+    if (QI_EVENTS.has(event.type) && !opening) gatherQi(event);
     if (!latest || event.type === 'lightning' || event.type === 'melt') latest = event;
   }
   const now = performance.now();
@@ -238,7 +239,7 @@ function enterInner() {
   effects.setPush(0); effects.fx.clear(); effects.fx.flash(.7);
   effects.setStage(inner.stage); inner.enter();
   innerToggle.textContent = '出定'; innerToggle.setAttribute('aria-pressed', 'true');
-  note('内观。选一个字，点穴位放进去（耗 20 灵力），右键取出。灵气沿小周天流转，相生的穴位相连更旺。滚轮向外或按 Esc 出定。');
+  note(satchel.length ? '内观。在字囊里点一个字，再点穴位放进去，右键取回。灵气沿小周天流转，相生的穴位相连更旺。滚轮向外或按 Esc 出定。' : '内观。穴位里只能放从天地里收来的字，字囊还是空的。出定后选“符”，画一个圆把湖水、树林或一片土圈起来。');
   sound('freeze', { x: player.x });
   wake();
 }
@@ -276,21 +277,24 @@ function innerPointer(event) {
   event.preventDefault();
   const p = pointF(event), n = inner.hit(p.x, p.y);
   if (n < 0) return;
-  const socket = SOCKETS[n];
+  const socket = SOCKETS[n], current = inner.kinds()[n];
   if (event.button === 2 || selected === K.EMPTY) {
-    if (inner.remove(n)) { applyMeridians(); sound('erase', { x: p.x }); note(`取出${socket.name}里的字。周天 ${inner.total.toFixed(2)}。`); }
+    if (!current) return;
+    if (satchel.length >= 6) { note('字囊满了，取不下来。'); return; }
+    inner.remove(n); satchel.push(current); renderSatchel(); applyMeridians(); sound('erase', { x: p.x });
+    note(`把「${materials[current].glyph}」从${socket.name}取回字囊。周天 ${inner.total.toFixed(2)}。${affinityText()}`);
     return;
   }
-  if (!elementOf(selected)) { note('只有水、火、木、金、土能放进穴位（冰、汽算水，雷算木）。'); return; }
-  if (simulation.spirit < 20) { insufficient({ x: Math.floor(p.x), y: Math.floor(p.y) }); return; }
-  if (inner.place(n, selected)) {
-    simulation.spirit -= 20; applyMeridians();
-    sound('write', { kind: selected, x: p.x, y: 1, intensity: 1.2 });
+  if (satchelPick < 0 || satchelPick >= satchel.length) { note(satchel.length ? '先在字囊里点一个字，再点穴位。' : '字囊是空的。出定后选“符”，画一个圆把材料圈起来，收一个字。'); return; }
+  const kind = satchel[satchelPick];
+  if (inner.place(n, kind)) {
+    satchel.splice(satchelPick, 1); if (current) satchel.push(current); satchelPick = -1; renderSatchel();
+    applyMeridians();
+    sound('write', { kind, x: p.x, y: 1, intensity: 1.2 });
     const kinds = inner.kinds(), links = [];
-    if (kinds[(n + 2) % 3]) links.push(relationText(kinds[(n + 2) % 3], selected));
-    if (kinds[(n + 1) % 3]) links.push(relationText(selected, kinds[(n + 1) % 3]));
-    note(`${socket.name}放入「${materials[selected].glyph}」${links.length ? '：' + links.join('，') : ''}。周天 ${inner.total.toFixed(2)}，灵力上限 ${simulation.maxSpirit}，每秒恢复 ${Math.round(simulation.regen * 20)}。`);
-    spentUntil = performance.now() + 180;
+    if (kinds[(n + 2) % 3]) links.push(relationText(kinds[(n + 2) % 3], kind));
+    if (kinds[(n + 1) % 3]) links.push(relationText(kind, kinds[(n + 1) % 3]));
+    note(`${socket.name}放入「${materials[kind].glyph}」${links.length ? '：' + links.join('，') : ''}。周天 ${inner.total.toFixed(2)}，灵力上限 ${simulation.maxSpirit}。${affinityText()}`, 6000);
   }
   wake(); updateReadout();
 }
@@ -301,81 +305,136 @@ function innerHover(event) {
   if (n >= 0) { const kind = inner.kinds()[n]; status(`${SOCKETS[n].name}：${kind ? `「${materials[kind].glyph}」` : '空'}`, 1200); $('cell-info').textContent = `${SOCKETS[n].name} · ${SOCKETS[n].role}`; }
   wake();
 }
-if (new URLSearchParams(location.search).has('debug')) globalThis.__tc = { get state() { return { mode, pushLevel: +pushLevel.toFixed(3), breakAt: +breakAt.toFixed(2), presentTime: +presentTime.toFixed(2), opening: Boolean(opening), total: inner?.total ?? 0 }; } };
-// 阵法: draw with the 阵 tool; the stroke is recognised and cast when released.
-let formation = null;
-const pendingCasts = [];
+if (new URLSearchParams(location.search).has('debug')) globalThis.__tc = { get state() { return { mode, pushLevel: +pushLevel.toFixed(3), breakAt: +breakAt.toFixed(2), presentTime: +presentTime.toFixed(2), opening: Boolean(opening), total: inner?.total ?? 0, hanging: hanging && { rune: hanging.rune, until: +hanging.until.toFixed(2), x: +hanging.geom.center.x.toFixed(1), y: +hanging.geom.center.y.toFixed(1), size: +hanging.geom.size.toFixed(2) }, last: globalThis.__lastRune }; } };
+// 符印 (after Lost Magic): △ fire, an arc wind, □ earth; a closed ○ draws a character into
+// the satchel. Ink is spent while drawing; a rune hangs for a moment, and a second rune drawn
+// over it fuses into a combo. Reactions in the world send 灵气 back to 我.
+let formation = null, hanging = null, satchelPick = -1;
+const activeSpells = [], satchel = [];
+const runeGlyphs = rune => RUNES[rune].glyph;
+function affinityText() { return `亲和：${['fire', 'wind', 'earth'].map(r => `${runeGlyphs(r)}×${affinity(RUNES[r].element, socketKinds()).toFixed(2)}`).join(' ')}`; }
+function socketKinds() { return inner ? inner.kinds() : [0, 0, 0]; }
+function renderSatchel() {
+  const box = $('satchel-items'); if (!box) return;
+  box.replaceChildren(...satchel.map((kind, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'satchel-item'; b.style.setProperty('--pigment', pigments[kind]);
+    b.textContent = materials[kind].glyph; b.setAttribute('aria-pressed', String(i === satchelPick));
+    b.setAttribute('aria-label', `字囊里的「${materials[kind].glyph}」`);
+    b.addEventListener('click', () => { satchelPick = satchelPick === i ? -1 : i; renderSatchel(); if (mode !== 'inner') note('字囊里的字要在内观时放进穴位。对着“我”滚轮往里推，或点“内观”。'); });
+    return b;
+  }));
+  $('satchel').dataset.empty = String(!satchel.length);
+}
+renderSatchel();
 function startFormation(event) {
-  formation = { id: event.pointerId, pts: [pointF(event)] };
+  // A second stroke begun while a rune hangs holds it until the stroke is done.
+  if (hanging && presentTime < hanging.until) hanging.until = Infinity;
+  formation = { id: event.pointerId, pts: [pointF(event)], ink: 0, broken: false };
   canvas.setPointerCapture(event.pointerId);
 }
 function extendFormation(event) {
-  const p = pointF(event), last = formation.pts.at(-1);
-  if (Math.hypot(p.x - last.x, p.y - last.y) < .18) return;
+  if (formation.broken) return;
+  const p = pointF(event), last = formation.pts.at(-1), d = Math.hypot(p.x - last.x, p.y - last.y);
+  if (d < .18) return;
+  const ink = d * INK_PER_CELL;
+  if (simulation.spirit < ink) {
+    formation.broken = true;
+    status('灵力不继，符断了', 1600); note('灵力不继，这一笔断了。等灵力恢复，或把符画小一点。');
+    effects.emit({ type: 'dry', x: Math.floor(p.x), y: Math.floor(p.y) }); sound('dry', { x: p.x });
+    return;
+  }
+  simulation.spirit -= ink; formation.ink += ink; spentUntil = performance.now() + 120;
   formation.pts.push(p);
-  effects.fx?.trail(last.x, last.y, p.x, p.y, K.GOLD, .2, 1.8);
+  effects.fx?.trail(last.x, last.y, p.x, p.y, K.GOLD, .2, 1.4);
   if (effects.fx && Math.random() < .3) effects.fx.add(effects.fx.glint(p.x, p.y, [1, .86, .5], .18));
   wake();
 }
 function finishFormation() {
-  const pts = formation.pts, end = pts.at(-1); formation = null;
-  const result = recognize(pts);
-  if (result) { castFormation(result); return; }
-  if (pts.length > 4) {
-    status('阵形不成', 1400);
-    note('阵形不成。一横为斩，圆为环，三角为爆，方为镇，折线为雷。');
-    effects.emit({ type: 'dry', x: Math.floor(end.x), y: Math.floor(end.y) }); sound('dry', { x: end.x });
-  }
-}
-function castFormation(result) {
-  const f = FORMATIONS[result.shape], root = inner?.root || 0, c = result.center, at = { x: Math.floor(c.x), y: Math.floor(c.y) };
-  if (f.needsRoot && !elementOf(root)) {
-    status('阵法无根', 1600);
-    note(`「${f.name}」要从下丹田取属性。滚轮对着“我”一直往里推，或点“内观”，在下丹田放一个字。`);
-    effects.emit({ type: 'dry', ...at }); sound('dry', at); return;
-  }
-  if (simulation.spirit < f.cost) { insufficient(at); return; }
-  simulation.spirit -= f.cost; spentUntil = performance.now() + 300;
-  const fx = effects.fx;
-  if (fx) {
-    const outline = sigil(result);
-    fx.sigil(outline, { width: result.shape === 'line' ? .18 : .12, life: 1.3 });
-    fx.add({ type: fx.kinds.glyph, glyph: GLYPH_INDEX[f.glyph], layer: 'add', x: c.x, y: c.y, vy: -.5, s: 1.5, life: 1.4, col: [1, .86, .52], a: 1, fadeIn: .08 });
-    const rune = elementOf(root) ? GLYPH_INDEX[materials[root].glyph] : undefined;
-    if (rune !== undefined && f.needsRoot) for (let i = 0; i < 8; i++) {
-      const q = outline[Math.floor(i / 8 * (outline.length - 1))];
-      fx.add({ type: fx.kinds.glyph, glyph: rune, layer: 'add', x: q.x, y: q.y, s: .45, life: 1.1, col: [1, .8, .45], a: .9, fadeIn: .1 + i * .04 });
+  const f = formation; formation = null;
+  if (hanging && hanging.until === Infinity) hanging.until = presentTime + .25;
+  if (f.broken) return;
+  const result = recognize(f.pts), end = f.pts.at(-1);
+  globalThis.__lastRune = result && { shape: result.shape, x: +result.center.x.toFixed(1), y: +result.center.y.toFixed(1), size: +result.size.toFixed(2), score: +result.score.toFixed(2), n: f.pts.length };
+  if (!result || result.shape === 'line') {
+    if (f.pts.length > 4) {
+      status('符形不成', 1400);
+      note(result?.shape === 'line' ? '一条直线不成符。风符要画成一道弧，从起笔吹向收笔。' : '符形不成。三角为火，弧为风，方为土，闭合的圆收字。');
+      effects.emit({ type: 'dry', x: Math.floor(end.x), y: Math.floor(end.y) }); sound('dry', { x: end.x });
     }
-    fx.flash(.18);
+    return;
   }
-  sound('solidify', { x: c.x, intensity: 1.2 });
-  note(`${f.name}：${f.text}（耗 ${f.cost} 灵力）。`);
-  status(`阵成：${f.name}`, 1500);
-  pendingCasts.push({ at: presentTime + .32, run: () => executeSpell(result, root) });
+  if (result.shape === 'circle') { releaseHanging(); capture(result); return; }
+  placeRune(RUNE_OF[result.shape], result);
+}
+const outlineOf = geom => geom.shape === 'arc' ? geom.ring : geom.ring.concat([geom.ring[0]]);
+function announce(glyph, at, col, scale) {
+  const fx = effects.fx; if (!fx) return;
+  fx.add({ type: fx.kinds.glyph, glyph: GLYPH_INDEX[glyph], layer: 'add', x: at.x, y: at.y, vy: -.5, s: scale, life: 1.3, col, a: 1, fadeIn: .08 });
+}
+function placeRune(rune, geom) {
+  const fx = effects.fx, info = RUNES[rune];
+  if (hanging && presentTime < hanging.until + .3 && Math.hypot(geom.center.x - hanging.geom.center.x, geom.center.y - hanging.geom.center.y) < Math.max(hanging.geom.size, geom.size) * 1.3 + 1) {
+    // Drawn over a hanging rune: the two fuse into a combo.
+    const first = hanging; hanging = null;
+    const key = comboKey(first.rune, rune), combo = COMBOS[key];
+    const center = { x: (first.geom.center.x + geom.center.x) / 2, y: (first.geom.center.y + geom.center.y) / 2 };
+    const merged = { ...geom, center, size: Math.max(first.geom.size, geom.size), dir: rune === 'wind' ? geom.dir : first.rune === 'wind' ? first.geom.dir : geom.dir };
+    const aff = (affinity(RUNES[first.rune].element, socketKinds()) + affinity(info.element, socketKinds())) / 2;
+    const power = powerOf(merged, aff) * 1.25;
+    fx?.sigil(outlineOf(geom), { width: .14, col: [1, .86, .52], life: .9 });
+    announce(combo.glyph, center, [1, .86, .52], 2);
+    fx?.flash(.3);
+    note(`${runeGlyphs(first.rune)}＋${info.glyph}成阵：${combo.name}，${combo.text}。威力 ×${power.toFixed(2)}。`);
+    status(`成阵：${combo.name}`, 1600);
+    release(key, merged, power);
+    return;
+  }
+  releaseHanging();
+  hanging = { rune, geom, until: presentTime + 1.6, aff: affinity(info.element, socketKinds()) };
+  fx?.sigil(outlineOf(geom), { width: .1, col: info.color, life: 1.7 });
+  announce(info.glyph, geom.center, info.color, 1.1);
+  status(`${info.name}：一息之内在上面再画一个符可成阵`, 1200);
+  sound('write', { kind: rune === 'fire' ? K.FIRE : rune === 'earth' ? K.EARTH : K.STEAM, x: geom.center.x, y: 1, intensity: 1 });
+}
+function releaseHanging() {
+  if (!hanging) return;
+  const h = hanging; hanging = null;
+  const power = powerOf(h.geom, h.aff);
+  release(h.rune, h.geom, power);
+  note(`${RUNES[h.rune].name}：威力 ×${power.toFixed(2)}（穴位亲和 ×${h.aff.toFixed(2)}）。`, 3000);
+}
+function release(key, geom, power) {
+  const spell = cast(key, geom, power, { world, K, fx: effects.fx, emit: event => effects.emit(event) });
+  if (spell) activeSpells.push(spell);
+  sound({ fire: 'ignite', 'fire+fire': 'ignite', wind: 'reset', 'wind+wind': 'reset', earth: 'solidify', 'earth+earth': 'solidify', 'fire+wind': 'ignite', 'earth+fire': 'melt', 'earth+wind': 'reset' }[key], { x: geom.center.x, intensity: 1.6 });
+  wake();
+}
+function capture(result) {
+  const got = captureFrom(world, K, result.ring);
+  if (!got) {
+    status('圈里没有可收的字', 1400); note('圈里同一种材料不到五格，收不出字。把湖水、树林或一片土整个圈住。');
+    effects.emit({ type: 'dry', x: Math.floor(result.center.x), y: Math.floor(result.center.y) }); return;
+  }
+  if (satchel.length >= 6) { note('字囊满了（最多六个字）。进内观把字放进穴位。'); return; }
+  for (const [x, y] of got.cells) { world.set(x, y, K.EMPTY); effects.emit({ type: 'qi', x, y }); }
+  satchel.push(got.kind); renderSatchel();
+  effects.fx?.sigil(outlineOf(result), { width: .1, col: [1, .86, .5], life: 1 });
+  announce('收', result.center, [1, .86, .52], 1.6);
+  note(`收得一个「${materials[got.kind].glyph}」，化去 ${got.cells.length} 格${materials[got.kind].name}。内观时把它放进穴位。`, 5000);
+  sound('freeze', { x: result.center.x });
   wake(); updateReadout();
 }
-function executeSpell(result, root) {
-  const p = plan(result, root, K, world), fx = effects.fx, c = result.center;
-  for (const [x, y] of p.cut) {
-    const old = world.kind[world.index(x, y)];
-    if (old && simulation.write(x, y, K.EMPTY)) effects.emit({ type: 'erase', x, y, kind: old });
-  }
-  for (const [x, y, kind] of p.cells) {
-    if (world.kind[world.index(x, y)] !== K.EMPTY) continue;
-    world.set(x, y, kind); effects.emit({ type: 'write', x, y, kind });
-  }
-  if (p.strike) {
-    let [x, y] = p.strike;
-    while (y > 0 && world.kind[world.index(x, y)]) y--;
-    if (!world.kind[world.index(x, y)]) world.set(x, y, K.LIGHTNING);
-  }
-  if (fx) {
-    if (result.shape === 'triangle') { fx.flash(.4); fx.shake(.22); fx.burst(18, () => fx.spark(c.x, c.y, [1, .8, .4], 1.6)); }
-    else if (result.shape === 'line') { const { from, to } = result; for (let i = 0; i < 14; i++) { const k = Math.random(); fx.add(fx.spark(from.x + (to.x - from.x) * k, from.y + (to.y - from.y) * k, [1, .9, .6], 1.1)); } fx.shake(.1); }
-    else fx.flash(.2);
-  }
-  sound({ line: 'erase', circle: 'write', triangle: 'ignite', square: 'solidify', zigzag: 'select' }[result.shape], { kind: root || K.GOLD, x: c.x, intensity: 1.5 });
-  wake();
+// 灵气 from reactions flows back to 我; meridians decide how much is absorbed.
+const QI_EVENTS = new Set(['ignite', 'boil', 'condense', 'freeze', 'thaw', 'melt', 'solidify', 'extinguish', 'lightning']);
+let qiTokens = 20, qiAt = 0;
+function gatherQi(event) {
+  qiTokens = Math.min(20, qiTokens + (presentTime - qiAt) * 24); qiAt = presentTime;
+  if (qiTokens < 1) return;
+  qiTokens--;
+  const absorb = .4 + .2 * (inner?.total ?? 0);
+  simulation.spirit = Math.min(simulation.maxSpirit, simulation.spirit + .35 * absorb);
+  effects.emit({ type: 'qi', x: event.x, y: event.y });
 }
 setPause(reduceMotion.matches);
 function fit() {
@@ -545,7 +604,8 @@ function frame(now) {
     effects.setPush?.(pushLevel, 1 + 1.8 * Math.pow(pushLevel, 1.4));
     if (pushLevel > .2 && (autoPush || breakAt >= 0 || presentTime - pushInputAt < .4)) effects.fx?.shake(.02 + pushLevel * .06);
   }
-  for (let i = pendingCasts.length - 1; i >= 0; i--) if (presentTime >= pendingCasts[i].at) pendingCasts.splice(i, 1)[0].run();
+  if (hanging && presentTime >= hanging.until) releaseHanging();
+  if (mode === 'world' && !simulation.paused) for (let i = activeSpells.length - 1; i >= 0; i--) if (!activeSpells[i].update(dt)) activeSpells.splice(i, 1);
   const events = consumeEffects();
   if (pointer && cursor) {
     drawCredit += Math.min(.2, elapsed) * 20;
@@ -558,5 +618,5 @@ function frame(now) {
     updateReadout(); lastReadout = now;
   }
   inFrame = false;
-  if (!simulation.paused || pointer || effects.active || dirty || stageUntil > now || spentUntil > now || pushLevel > 0 || pendingCasts.length || formation || mode === 'inner') animation = requestAnimationFrame(frame);
+  if (!simulation.paused || pointer || effects.active || dirty || stageUntil > now || spentUntil > now || pushLevel > 0 || activeSpells.length || hanging || formation || mode === 'inner') animation = requestAnimationFrame(frame);
 }

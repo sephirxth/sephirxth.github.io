@@ -1,12 +1,17 @@
-// 阵法: a stroke drawn with the 阵 tool is recognised ($1 unistroke recogniser, Wobbrock
-// et al. 2007) as one of five formations, then cast into the world through ordinary writes.
-// Shape picks the form; the character in 下丹田 picks the material.
+// 符印, after Lost Magic (Taito, 2006): runes drawn with the 符 tool. △ is fire, an open arc
+// is wind (it blows from where the stroke starts toward where it ends), □ is earth, and a
+// closed ○ draws a character out of the world into the satchel. A rune hangs for a moment;
+// a second rune drawn over it fuses into a combo. Recognition is the $1 unistroke recogniser
+// (Wobbrock et al. 2007). Spells act only through ordinary world writes, heat and wind.
+import { elementOf } from './inner.mjs';
+
 const N = 64, SIZE = 250, HALF_DIAG = .5 * Math.hypot(SIZE, SIZE), PHI = .5 * (Math.sqrt(5) - 1);
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const pathLength = pts => pts.reduce((s, p, i) => i ? s + dist(pts[i - 1], p) : 0, 0);
 const centroid = pts => ({ x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length });
+const rand = (a, b) => a + Math.random() * (b - a);
 function resample(points, n = N) {
-  const pts = points.map(p => ({ ...p })), I = pathLength(pts) / (n - 1), out = [pts[0]];
+  const pts = points.map(p => ({ x: p.x, y: p.y })), I = pathLength(pts) / (n - 1), out = [pts[0]];
   let D = 0;
   for (let i = 1; i < pts.length; i++) {
     const d = dist(pts[i - 1], pts[i]);
@@ -53,85 +58,208 @@ function polygon(corners, startAt = 0, reverse = false) {
 }
 const TEMPLATES = [];
 {
-  const circle = dir => Array.from({ length: 65 }, (_, i) => { const a = -Math.PI / 2 + dir * i / 64 * Math.PI * 2; return { x: Math.cos(a), y: Math.sin(a) }; });
-  for (const dir of [1, -1]) TEMPLATES.push({ shape: 'circle', pts: normalize(circle(dir)) });
+  const arc = (sweep, dir) => Array.from({ length: 65 }, (_, i) => { const a = dir * (i / 64 - .5) * sweep; return { x: Math.sin(a), y: -Math.cos(a) }; });
+  for (const dir of [1, -1]) {
+    TEMPLATES.push({ shape: 'circle', closed: true, pts: normalize(arc(Math.PI * 2, dir)) });
+    for (const sweep of [100, 150, 200, 250, 290]) TEMPLATES.push({ shape: 'arc', closed: false, pts: normalize(arc(sweep / 180 * Math.PI, dir)) });
+  }
   const tri = [{ x: 0, y: -1 }, { x: .87, y: .5 }, { x: -.87, y: .5 }];
   const sq = [{ x: -1, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }];
   for (const rev of [false, true]) {
-    for (let s = 0; s < 3; s++) TEMPLATES.push({ shape: 'triangle', pts: normalize(polygon(tri, s, rev)) });
-    for (let s = 0; s < 4; s++) TEMPLATES.push({ shape: 'square', pts: normalize(polygon(sq, s, rev)) });
+    for (let s = 0; s < 3; s++) TEMPLATES.push({ shape: 'triangle', closed: true, pts: normalize(polygon(tri, s, rev)) });
+    for (let s = 0; s < 4; s++) TEMPLATES.push({ shape: 'square', closed: true, pts: normalize(polygon(sq, s, rev)) });
   }
-  const zig = [{ x: -1, y: -1 }, { x: .4, y: -.35 }, { x: -.4, y: .35 }, { x: 1, y: 1 }];
-  const zigPts = [];
-  for (let i = 0; i < zig.length - 1; i++) for (let k = 0; k <= 16; k++) zigPts.push({ x: zig[i].x + (zig[i + 1].x - zig[i].x) * k / 16, y: zig[i].y + (zig[i + 1].y - zig[i].y) * k / 16 });
-  TEMPLATES.push({ shape: 'zigzag', pts: normalize(zigPts) }, { shape: 'zigzag', pts: normalize(zigPts.slice().reverse()) });
 }
 
-// points in grid cells; returns null for scribbles too small or too unlike any formation
+// points in grid cells; null for scribbles too small or unlike any rune
 export function recognize(points) {
   if (points.length < 6) return null;
   const length = pathLength(points), xs = points.map(p => p.x), ys = points.map(p => p.y);
   const box = { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
   const diag = Math.hypot(box.x1 - box.x0, box.y1 - box.y0);
   if (diag < 2.2) return null;
-  const ends = dist(points[0], points[points.length - 1]), closed = ends < Math.max(1.6, diag * .3);
-  const c = centroid(resample(points));
-  if (ends / length > .9) return { shape: 'line', score: ends / length, from: points[0], to: points[points.length - 1], center: c, diag };
+  const from = points[0], to = points[points.length - 1], ends = dist(from, to);
+  const closed = ends < Math.max(1.6, diag * .3);
+  const ring = resample(points), center = centroid(ring), radius = ring.reduce((s, p) => s + dist(p, center), 0) / N;
+  const chord = { x: (to.x - from.x) / (ends || 1), y: (to.y - from.y) / (ends || 1) };
+  const geom = { center, radius, box, diag, from, to, length, dir: chord, ring, size: Math.max(radius, diag * .35) };
+  if (ends / length > .92) return { shape: 'line', score: ends / length, ...geom };
   const pts = normalize(points);
   let best = null;
   for (const tmpl of TEMPLATES) {
-    if ((tmpl.shape === 'zigzag') === closed) continue;
+    if (tmpl.closed !== closed) continue;
     const d = bestAngle(pts, tmpl.pts);
     if (!best || d < best.d) best = { d, shape: tmpl.shape };
   }
   const score = 1 - best.d / HALF_DIAG;
-  if (score < .74) return null;
-  const radius = resample(points).reduce((s, p) => s + dist(p, c), 0) / N;
-  return { shape: best.shape, score, center: c, radius, box, diag, from: points[0], to: points[points.length - 1] };
+  if (score < .72) return null;
+  return { shape: best.shape, score, ...geom };
 }
 
-export const FORMATIONS = {
-  line: { name: '斩', glyph: '斩', cost: 20, needsRoot: false, text: '剑气斩，劈开沿线的材料' },
-  circle: { name: '环', glyph: '环', cost: 40, needsRoot: true, text: '灵环，沿圆写一圈丹田的属性' },
-  triangle: { name: '爆', glyph: '爆', cost: 50, needsRoot: true, text: '爆，在中心炸开一团丹田的属性' },
-  square: { name: '镇', glyph: '镇', cost: 40, needsRoot: true, text: '镇，筑一圈墙（水为冰，金为金，其余为本属性）' },
-  zigzag: { name: '雷', glyph: '雷', cost: 30, needsRoot: false, text: '天雷，落在折线的末端' },
+export const RUNE_OF = { triangle: 'fire', arc: 'wind', square: 'earth' };
+export const RUNES = {
+  fire: { glyph: '火', name: '火符', element: 'fire', color: [1, .5, .2] },
+  wind: { glyph: '风', name: '风符', element: 'wood', color: [.75, .9, 1] },
+  earth: { glyph: '土', name: '土符', element: 'earth', color: [.92, .7, .42] },
 };
+export const COMBOS = {
+  'fire+fire': { glyph: '焰', name: '烈焰', text: '一团更大更烫的火' },
+  'wind+wind': { glyph: '飓', name: '飓风', text: '长而猛的风' },
+  'earth+earth': { glyph: '岳', name: '山岳', text: '从地面拔起一座土山' },
+  'fire+wind': { glyph: '卷', name: '火龙卷', text: '旋转的火柱顺风而行，沿途点燃' },
+  'earth+fire': { glyph: '岩', name: '熔岩', text: '熔流顺坡淌下，冷却后凝成金' },
+  'earth+wind': { glyph: '沙', name: '沙暴', text: '风卷着沙，在下风处堆积' },
+};
+export const comboKey = (a, b) => [a, b].sort().join('+');
 
-// Cells each formation writes. Writes go only into empty cells, so a spell adds, never deletes,
-// except 斩, which cuts. Returns { cells: [[x, y, kind]], cut: [[x, y]], strike: [x, y] }.
-export function plan(result, root, K, world) {
-  const { shape } = result, cells = [], cut = [], inside = (x, y) => world.index(x, y) >= 0;
-  const material = root === K.ICE || root === K.STEAM ? K.WATER : root === K.LIGHTNING ? K.WOOD : root;
-  const wall = material === K.WATER ? K.ICE : material;
-  const put = (x, y, kind) => { x = Math.round(x); y = Math.round(y); if (inside(x, y) && !cells.some(c => c[0] === x && c[1] === y)) cells.push([x, y, kind]); };
-  if (shape === 'line') {
-    const { from, to } = result, steps = Math.ceil(dist(from, to) * 2);
-    for (let i = 0; i <= steps; i++) {
-      const x = Math.round(from.x + (to.x - from.x) * i / steps - .5), y = Math.round(from.y + (to.y - from.y) * i / steps - .5);
-      if (inside(x, y) && !cut.some(c => c[0] === x && c[1] === y)) cut.push([x, y]);
-    }
-  } else if (shape === 'circle') {
-    const r = Math.max(1.5, Math.min(9, result.radius)), n = Math.ceil(r * 7);
-    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; put(result.center.x - .5 + Math.cos(a) * r, result.center.y - .5 + Math.sin(a) * r, material); }
-  } else if (shape === 'triangle') {
-    const r = Math.max(1.5, Math.min(4, result.radius * .7));
-    for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r) put(result.center.x - .5 + x, result.center.y - .5 + y, material);
-  } else if (shape === 'square') {
-    const { x0, y0, x1, y1 } = result.box;
-    for (let x = Math.round(x0); x <= Math.round(x1); x++) { put(x - .5, y0 - .5, wall); put(x - .5, y1 - .5, wall); }
-    for (let y = Math.round(y0); y <= Math.round(y1); y++) { put(x0 - .5, y - .5, wall); put(x1 - .5, y - .5, wall); }
+const GENERATES = { wood: 'fire', fire: 'earth', earth: 'metal', metal: 'water', water: 'wood' };
+const OVERCOMES = { wood: 'earth', earth: 'water', water: 'fire', fire: 'metal', metal: 'wood' };
+// How the characters in the meridians favour a rune's element (风 counts as 木).
+export function affinity(element, socketKinds) {
+  let a = 1;
+  for (const kind of socketKinds) {
+    const e = elementOf(kind);
+    if (!e) continue;
+    if (e === element) a += .2;
+    else if (GENERATES[e] === element) a += .15;
+    else if (OVERCOMES[e] === element) a -= .15;
   }
-  const strike = shape === 'zigzag' ? [Math.round(result.to.x - .5), Math.round(result.to.y - .5)] : null;
-  return { cells, cut, strike };
+  return Math.max(.5, Math.min(2, a));
+}
+// Rune size sets its power; bigger runes also cost more ink.
+export const powerOf = (geom, aff) => Math.max(.6, Math.min(2.2, geom.size / 3)) * aff;
+export const INK_PER_CELL = 1.8;
+
+// ---------- world effects ----------
+function each(world, cx, cy, R, fn) {
+  for (let y = Math.max(0, Math.floor(cy - R)); y <= Math.min(world.height - 1, Math.ceil(cy + R)); y++)
+    for (let x = Math.max(0, Math.floor(cx - R)); x <= Math.min(world.width - 1, Math.ceil(cx + R)); x++) {
+      const d = Math.hypot(x + .5 - cx, y + .5 - cy);
+      if (d <= R) fn(x, y, world.index(x, y), d);
+    }
+}
+function heat(world, cx, cy, R, amount) {
+  each(world, cx, cy, R, (x, y, i, d) => { if (world.kind[i]) world.temp[i] = Math.min(6000, world.temp[i] + amount * (1 - d / R)); });
+}
+function sprinkle(ctx, cx, cy, R, kind, chance, props) {
+  const { world, K, emit } = ctx;
+  each(world, cx, cy, R, (x, y, i) => {
+    if (world.kind[i] === K.EMPTY && Math.random() < chance) { world.set(x, y, kind, props); emit({ type: 'write', x, y, kind }); }
+  });
+}
+function lingering(duration, step) {
+  let t = 0, acc = 0;
+  return { update(dt) { t += dt; acc += dt; while (acc >= .05) { acc -= .05; step(t, .05); } return t < duration; } };
+}
+// Wind along a capsule; equilibrium strength is `strength` because the field decays each step.
+function gust(world, from, dir, length, radius, strength) {
+  for (let s = 0; s <= length; s += 1.5) world.addWind(from.x + dir.x * s, from.y + dir.y * s, radius, dir.x * strength * .08, dir.y * strength * .08);
 }
 
-// The ideal outline drawn in gold when a formation locks in (grid cells).
-export function sigil(result) {
-  const { shape, center: c } = result;
-  if (shape === 'line' || shape === 'zigzag') return [result.from, result.to];
-  if (shape === 'circle') { const r = result.radius; return Array.from({ length: 49 }, (_, i) => ({ x: c.x + Math.cos(i / 48 * Math.PI * 2) * r, y: c.y + Math.sin(i / 48 * Math.PI * 2) * r })); }
-  if (shape === 'triangle') { const r = result.radius * 1.25; return [0, 1, 2, 0].map(i => ({ x: c.x + Math.cos(-Math.PI / 2 + i * Math.PI * 2 / 3) * r, y: c.y + Math.sin(-Math.PI / 2 + i * Math.PI * 2 / 3) * r })); }
-  const { x0, y0, x1, y1 } = result.box;
-  return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }, { x: x0, y: y0 }];
+// Returns a lingering spell (with update(dt) -> alive) or null when the effect is instant.
+export function cast(key, geom, power, ctx) {
+  const { world, K, fx } = ctx, c = geom.center, dir = geom.dir;
+  const burst = (n, make) => { if (fx) for (let i = 0; i < n; i++) fx.add(make(i)); };
+  if (key === 'fire' || key === 'fire+fire') {
+    const big = key === 'fire+fire', R = big ? 2.6 + 1.6 * power : 1.6 + 1.2 * power;
+    heat(world, c.x, c.y, R, (big ? 1400 : 800) * power);
+    sprinkle(ctx, c.x, c.y, R * (big ? .8 : .7), K.FIRE, big ? .6 : .45, { fuel: 2 });
+    if (fx) { fx.flash(big ? .55 : .25); fx.shake(big ? .3 : .12); burst(big ? 30 : 14, () => fx.ember(c.x, c.y, big ? 2 : 1.4)); }
+    return null;
+  }
+  if (key === 'earth') {
+    const half = Math.min(3.5, Math.max(1, Math.min(geom.box.x1 - geom.box.x0, geom.box.y1 - geom.box.y0) / 2));
+    for (let y = Math.round(c.y - half); y < Math.round(c.y + half); y++) for (let x = Math.round(c.x - half); x < Math.round(c.x + half); x++) {
+      const i = world.index(x, y);
+      if (i >= 0 && world.kind[i] === K.EMPTY) { world.set(x, y, K.EARTH); ctx.emit({ type: 'write', x, y, kind: K.EARTH }); }
+    }
+    if (fx) fx.shake(.1);
+    return null;
+  }
+  if (key === 'earth+earth') {
+    const x0 = Math.round(c.x - .5);
+    let ground = Math.min(world.height - 1, Math.max(0, Math.round(c.y)));
+    while (ground < world.height - 1 && !world.kind[world.index(x0, ground)]) ground++;
+    const half = Math.round(2 + 1.8 * power);
+    for (let j = 0; j <= half; j++) for (let x = x0 - (half - j); x <= x0 + (half - j); x++) {
+      const y = ground - 1 - j, i = world.index(x, y);
+      if (i >= 0 && world.kind[i] === K.EMPTY) { world.set(x, y, K.EARTH); ctx.emit({ type: 'write', x, y, kind: K.EARTH }); }
+    }
+    if (fx) { fx.shake(.28); fx.flash(.15); }
+    return null;
+  }
+  if (key === 'earth+fire') {
+    const R = 1.4 + .9 * power;
+    sprinkle(ctx, c.x, c.y, R, K.MOLTEN, .85, { temp: 1800 });
+    heat(world, c.x, c.y, R * 1.5, 600 * power);
+    if (fx) { fx.flash(.35); fx.shake(.18); burst(18, () => fx.spark(c.x, c.y, [1, .62, .22], 1.4)); }
+    return null;
+  }
+  if (key === 'wind' || key === 'wind+wind') {
+    const gale = key === 'wind+wind', length = (gale ? 8 : 4) + geom.size * (gale ? 2 : 1.4), radius = (gale ? 3 : 2) + power * (gale ? 1.2 : .8);
+    const from = { x: c.x - dir.x * length * .5, y: c.y - dir.y * length * .5 };
+    return lingering(gale ? 3 : 1.6, () => {
+      gust(world, from, dir, length, radius, (gale ? 2.4 : 1.2) * power);
+      burst(gale ? 3 : 2, () => { const s = rand(0, length), off = rand(-radius, radius); return { type: fx.kinds.streak, layer: 'add', x: from.x + dir.x * s - dir.y * off, y: from.y + dir.y * s + dir.x * off, vx: dir.x * rand(7, 12), vy: dir.y * rand(7, 12), s: .03, sy: rand(.35, .6), life: rand(.35, .6), col: [.78, .88, 1], a: .45 }; });
+    });
+  }
+  if (key === 'fire+wind') {
+    // The whirl drops to the ground and runs along it, leaving burning cells behind.
+    const ground = x => {
+      const cx = Math.round(Math.max(0, Math.min(world.width - 1, x - .5)));
+      let y = 0;
+      while (y < world.height - 1 && !(world.kind[world.index(cx, y + 1)] && world.kind[world.index(cx, y + 1)] !== K.FIRE && world.kind[world.index(cx, y + 1)] !== K.STEAM)) y++;
+      return y + .5;
+    };
+    const pos = { x: c.x, y: ground(c.x) }, speed = 5, heading = Math.sign(dir.x) || 1;
+    return lingering(2.8, (t, dt) => {
+      pos.x = Math.max(1, Math.min(world.width - 2, pos.x + heading * speed * dt));
+      pos.y += (ground(pos.x) - pos.y) * .5;
+      sprinkle(ctx, pos.x, pos.y - 1, 1.3, K.FIRE, .4, { fuel: 1.2, residue: .15 });
+      heat(world, pos.x, pos.y, 1.8, 420 * power);
+      for (let k = 0; k < 4; k++) {
+        const a = t * 9 + k * Math.PI / 2, ox = Math.cos(a) * 1.6, oy = Math.sin(a) * 1.6;
+        world.addWind(pos.x + ox, pos.y + oy, 1.6, (-oy * .9 + dir.x * .6) * .08 * power, (ox * .9 - 1.2) * .08 * power);
+      }
+      burst(3, () => { const a = rand(0, Math.PI * 2), r = rand(.3, 1.6); return fx.ember(pos.x + Math.cos(a) * r, pos.y - rand(0, 3), 1.2); });
+    });
+  }
+  if (key === 'earth+wind') {
+    const length = 6 + geom.size * 1.6, from = { x: c.x - dir.x * length * .5, y: c.y - dir.y * length * .5 }, radius = 2.2 + power * .8;
+    return lingering(2.6, () => {
+      gust(world, from, dir, length, radius, 1.6 * power);
+      for (let k = 0; k < 2; k++) {
+        const x = Math.round(from.x + rand(-radius, radius) * .6), y = Math.round(from.y + rand(-radius, radius) * .6), i = world.index(x, y);
+        if (i >= 0 && world.kind[i] === K.EMPTY) { world.set(x, y, K.EARTH); ctx.emit({ type: 'write', x, y, kind: K.EARTH }); }
+      }
+      burst(2, () => ({ type: fx.kinds.flake, layer: 'over', x: from.x + rand(0, length) * dir.x, y: from.y + rand(0, length) * dir.y + rand(-1, 1), vx: dir.x * rand(5, 9), vy: dir.y * rand(5, 9), s: .05, life: .6, col: [.85, .64, .4], a: .8 }));
+    });
+  }
+  return null;
+}
+
+// 收: the element most present inside a closed stroke (at least five cells) leaves the world.
+export function captureFrom(world, K, ring) {
+  const inside = (px, py) => {
+    let hit = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i], b = ring[j];
+      if ((a.y > py) !== (b.y > py) && px < (b.x - a.x) * (py - a.y) / (b.y - a.y) + a.x) hit = !hit;
+    }
+    return hit;
+  };
+  const xs = ring.map(p => p.x), ys = ring.map(p => p.y), cells = {};
+  for (let y = Math.max(0, Math.floor(Math.min(...ys))); y <= Math.min(world.height - 1, Math.ceil(Math.max(...ys))); y++)
+    for (let x = Math.max(0, Math.floor(Math.min(...xs))); x <= Math.min(world.width - 1, Math.ceil(Math.max(...xs))); x++) {
+      const kind = world.kind[world.index(x, y)], e = elementOf(kind);
+      if (e && inside(x + .5, y + .5)) (cells[e] ||= []).push([x, y, kind]);
+    }
+  // Ground is everywhere, so earth counts half when choosing what the circle holds.
+  const weight = e => cells[e].length * (e === 'earth' ? .5 : 1);
+  const best = Object.keys(cells).filter(e => cells[e].length >= 5).sort((a, b) => weight(b) - weight(a))[0];
+  if (!best) return null;
+  const c = { x: xs.reduce((s, v) => s + v, 0) / xs.length, y: ys.reduce((s, v) => s + v, 0) / ys.length };
+  const taken = cells[best].sort((a, b) => Math.hypot(a[0] + .5 - c.x, a[1] + .5 - c.y) - Math.hypot(b[0] + .5 - c.x, b[1] + .5 - c.y)).slice(0, 16);
+  const canonical = { water: K.WATER, fire: K.FIRE, wood: K.WOOD, metal: K.GOLD, earth: K.EARTH };
+  return { element: best, kind: canonical[best], cells: taken };
 }

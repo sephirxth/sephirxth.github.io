@@ -1,9 +1,9 @@
 // WebGL2 renderer: indigo sutra paper (磁青纸), mineral-pigment glyphs, firelight, flames, fluids.
 // It only reads World state. Visual randomness uses Math.random(), never World.random().
-const GLYPHS = ['我', '水', '火', '木', '金', '土', '冰', '汽', '雷', '灰', '燃', '沸', '凝', '冻', '融', '熔', '铸', '熄', '霆', '剑', '渡', '劫', '飞', '升', '生', '克', '阵', '内', '观', '斩', '环', '爆', '镇'];
+const GLYPHS = ['我', '水', '火', '木', '金', '土', '冰', '汽', '雷', '灰', '燃', '沸', '凝', '冻', '融', '熔', '铸', '熄', '霆', '剑', '渡', '劫', '飞', '升', '生', '克', '阵', '内', '观', '斩', '环', '爆', '镇', '风', '焰', '飓', '岳', '卷', '岩', '沙', '收', '灵', '符'];
 export const GLYPH_INDEX = Object.fromEntries(GLYPHS.map((ch, i) => [ch, i]));
 const LABELS = { ignite: 10, boil: 11, condense: 12, freeze: 13, thaw: 14, melt: 15, solidify: 16, extinguish: 17, lightning: 18 };
-const ATLAS_COLS = 8, ATLAS_ROWS = 5, ATLAS_CELL = 128, SPREAD = 16;
+const ATLAS_COLS = 8, ATLAS_ROWS = 6, ATLAS_CELL = 128, SPREAD = 16;
 const PLAYER = 11;
 // Pigments as linear-ish display colours on the indigo ground.
 const PIGMENT = {
@@ -518,7 +518,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   const partLimit = mobile ? 420 : 900;
   let motion = true, clock = 0, flash = 0, shake = 0, quality = mobile ? .55 : 1;
   let atlasReady = false, atlasFont = '', sizeKey = '', paperKey = '';
-  let resetPending = true, introAt = -10, serial = 0, arcsAt = 0, eventBudget = 0, stage = null;
+  let resetPending = true, introAt = -10, serial = 0, arcsAt = 0, eventBudget = 0, stage = null, windCredit = 0;
   const push = { p: 0, zoom: 1 };
   const recs = new Map(), ghosts = [], parts = [], bolts = [], trail = [];
   const erasedCells = new Set(), labelAt = {};
@@ -782,6 +782,11 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     const { type, x = 0, y = 0, kind = K.EMPTY } = event;
     const cx = x + .5, cy = y + .5;
     if (type === 'reset') { resetPending = true; parts.length = 0; bolts.length = 0; trail.length = 0; person.ready = false; flash = 0; return; }
+    if (type === 'qi') {
+      // A mote of 灵气 rises from a reaction and flies home to 我.
+      if (motion) add({ type: kinds.star, layer: 'add', x: cx + rand(-.3, .3), y: cy + rand(-.3, .3), vx: rand(-2, 2), vy: rand(-3, -1), s: rand(.14, .22), life: 2.2, col: [1, .86, .5], a: .9, home: true, drag: 1.4 });
+      return;
+    }
     if (type === 'move') { if (motion) add({ type: kinds.seal, layer: 'under', x: cx, y: cy, s: .5, life: .9, col: [.8, .2, .14], a: .35 }); return; }
     if (type === 'dry') { add({ type: kinds.ring, layer: 'over', x: cx, y: cy, s: .9, grow: 1.2, life: .55, col: [.9, .35, .25], a: .8 }); if (motion) shake = Math.max(shake, .08); return; }
     if (type === 'stroke') { trail.push({ x0: event.x + .5, y0: event.y + .5, x1: event.toX + .5, y1: event.toY + .5, kind, t: clock, w: .32 + (event.width || .14) * 2.4 }); if (trail.length > 160) trail.shift(); return; }
@@ -838,6 +843,12 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       if (p.age >= p.life) { parts.splice(n, 1); continue; }
       if (!motion) continue;
       if (p.turb) { p.vx += Math.sin(p.y * 2.3 + clock * 3 + p.seed * 20) * 2.4 * dt; }
+      if (p.home) {
+        const dx = person.x + .5 - p.x, dy = person.y + .5 - p.y, d = Math.hypot(dx, dy) || 1;
+        if (d < .6) { p.life = p.age; continue; }
+        const pull = 30 * Math.min(1, p.age * 1.6);
+        p.vx += dx / d * pull * dt; p.vy += dy / d * pull * dt;
+      }
       p.vy += p.g * dt;
       const drag = Math.exp(-p.drag * dt); p.vx *= drag; p.vy *= drag;
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -862,6 +873,17 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       else if (k === K.GOLD) { if (Math.random() < .05 * rate) add(glint(x + rand(-.3, .3), y + rand(-.3, .3), [1, .88, .55], .26)); }
       else if (k === K.ICE) { if (Math.random() < .05 * rate) add(glint(x + rand(-.3, .3), y + rand(-.3, .3), [.85, .97, 1], .22)); }
       else if (k === K.WATER) { if (Math.random() < .03 * rate && (i < W || kind[i - W] !== K.WATER)) add(glint(x + rand(-.4, .4), y - .35, [.7, .92, 1], .2)); }
+    }
+    // Wind is invisible in the rules; show it as streaks wherever the field is strong.
+    if (world.windActive) {
+      windCredit += dt * 45 * quality;
+      for (let tries = 0; windCredit >= 1 && tries < 80; tries++) {
+        const i = Math.floor(Math.random() * world.size), wx = world.windX[i], wy = world.windY[i], s = Math.hypot(wx, wy);
+        if (s < .3) continue;
+        windCredit--;
+        add({ type: kinds.streak, layer: 'add', x: i % W + Math.random(), y: ((i / W) | 0) + Math.random(), vx: wx * 6, vy: wy * 6, s: .025, sy: .25 + s * .18, life: .5, col: [.76, .86, 1], a: Math.min(.5, s * .28) });
+      }
+      windCredit = Math.min(windCredit, 4);
     }
     if (clock - arcsAt > .07) {
       arcsAt = clock;
