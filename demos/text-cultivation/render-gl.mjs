@@ -518,7 +518,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   const partLimit = mobile ? 420 : 900;
   let motion = true, clock = 0, flash = 0, shake = 0, quality = mobile ? .55 : 1;
   let atlasReady = false, atlasFont = '', sizeKey = '', paperKey = '';
-  let resetPending = true, introAt = -10, serial = 0, arcsAt = 0, eventBudget = 0, stage = null, windCredit = 0;
+  let resetPending = true, introAt = -10, serial = 0, arcsAt = 0, eventBudget = 0, stage = null, overlay = null, windCredit = 0;
   const push = { p: 0, zoom: 1 };
   const recs = new Map(), ghosts = [], parts = [], bolts = [], trail = [];
   const erasedCells = new Set(), labelAt = {};
@@ -929,6 +929,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   function cellLight() {
     if (stage) { stageLight(); return; }
     const d = cellData, kind = world.kind, temp = world.temp, charge = world.charge, fuel = world.fuel;
+    const extra = overlay?.lights || [];
     for (let i = 0; i < world.size; i++) {
       const k = kind[i]; let r = 0, g = 0, b = 0, heat = 0;
       if (k) {
@@ -943,6 +944,14 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
         if (q > .05) { r += .55 * q; g += .4 * q; b += q; }
       }
       d[i * 4] = Math.min(255, r * 255); d[i * 4 + 1] = Math.min(255, g * 255); d[i * 4 + 2] = Math.min(255, b * 255); d[i * 4 + 3] = heat * 255;
+    }
+    for (const l of extra) {
+      const rad = Math.max(1, l.r ?? 2);
+      for (let y = Math.floor(l.y - rad); y <= Math.ceil(l.y + rad); y++) for (let x = Math.floor(l.x - rad); x <= Math.ceil(l.x + rad); x++) {
+        if (x < 0 || x >= W || y < 0 || y >= H) continue;
+        const f = Math.max(0, 1 - Math.hypot(x + .5 - l.x, y + .5 - l.y) / rad), o = (y * W + x) * 4;
+        if (f > 0) { d[o] = Math.min(255, d[o] + l.col[0] * f * 255); d[o + 1] = Math.min(255, d[o + 1] + l.col[1] * f * 255); d[o + 2] = Math.min(255, d[o + 2] + l.col[2] * f * 255); }
+      }
     }
     gl.bindTexture(gl.TEXTURE_2D, cellTex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, d);
@@ -1012,6 +1021,10 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       const { cursor, selected } = state;
       if (cursor && !cursor.drawing && (cursor.kind ?? selected)) put(cursor.x, cursor.y, cursor.kind ?? selected, 0, 1, 1, 290, 0, .5, 0, 0, 1);
       put(person.x, person.y, PLAYER, 0, 1, 1, 290, 0, .3, 0, 0, 4);
+      if (overlay?.actors) for (const a of overlay.actors) {
+        const al = a.a ?? 1; if (al < .003) continue;
+        put(a.x - .5, a.y - .5, a.k, 0, 1, a.bt ?? 1, a.temp ?? 290, a.charge ?? 0, a.seed ?? .5, 0, a.fuel ?? 0, a.flags ?? 0, a.s ?? 1, a.r ?? 0, al, a.g === undefined ? 0 : a.g + 1);
+      }
     }
     glyphs.n = n; fluids.n = nf;
     // particles
@@ -1031,9 +1044,9 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       d[o + 4] = p.col[0]; d[o + 5] = p.col[1]; d[o + 6] = p.col[2]; d[o + 7] = a;
       d[o + 8] = rot; d[o + 9] = p.type; d[o + 10] = p.seed; d[o + 11] = p.glyph;
     }
-    if (stage?.marks) for (const m of stage.marks) {
+    for (const src of [stage, stage ? null : overlay]) if (src?.marks) for (const m of src.marks) {
       const b = lists[m.layer] || partsOver; if (b.n >= b.max) continue;
-      const o = b.n++ * 12, d = b.data, u = stage.unit ?? 1;
+      const o = b.n++ * 12, d = b.data, u = src.unit ?? 1;
       d[o] = m.x * u; d[o + 1] = m.y * u; d[o + 2] = m.s * u; d[o + 3] = (m.sy ?? m.s) * u;
       d[o + 4] = m.col[0]; d[o + 5] = m.col[1]; d[o + 6] = m.col[2]; d[o + 7] = m.a ?? 1;
       d[o + 8] = m.rot ?? 0; d[o + 9] = m.type; d[o + 10] = m.seed ?? .5; d[o + 11] = m.glyph ?? 0;
@@ -1062,7 +1075,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       if (b.flicker && motion) I *= t < .08 ? 1 : t < .13 ? .25 : t < .2 ? .9 : 1 - t * .6;
       pushRibbon(b.pts, b.width, b.col, () => I, 0);
     }
-    if (stage?.ribbons) { const u = stage.unit ?? 1; for (const rb of stage.ribbons) pushRibbon(rb.pts.map(q => ({ x: q.x * u, y: q.y * u })), rb.width * u, rb.col, () => rb.a ?? 1, 0); }
+    for (const src of [stage, stage ? null : overlay]) if (src?.ribbons) { const u = src.unit ?? 1; for (const rb of src.ribbons) pushRibbon(rb.pts.map(q => ({ x: q.x * u, y: q.y * u })), rb.width * u, rb.col, () => rb.a ?? 1, 0); }
     const boltVerts = ribbonCount;
     for (const s of trail) {
       const t = clamp((now - s.t) / (s.life ?? 1.1), 0, 1);
@@ -1162,9 +1175,11 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     emit, update, render, sync,
     setMotion(value) { motion = Boolean(value); shake = 0; if (!motion) parts.length = 0; },
     invalidate() { sizeKey = ''; if (fontLoaded() !== atlasFont) atlasReady = false; },
-    get active() { return Boolean(stage) || parts.length > 0 || bolts.length > 0 || ghosts.length > 0 || trail.length > 0 || flash > 0 || personMoving; },
+    get active() { return Boolean(stage) || Boolean(overlay) || parts.length > 0 || bolts.length > 0 || ghosts.length > 0 || trail.length > 0 || flash > 0 || personMoving; },
     // The opening drives the renderer through a stage of actors and these effects.
     setStage(value) { stage = value || null; },
+    // Shapes drawn over the world each frame (the magic circle), in grid cells.
+    setOverlay(value) { overlay = value || null; },
     // Push toward 我 before inner sight: p in 0..1, zoom >= 1.
     setPush(p, zoom = 1) { push.p = motion ? p : 0; push.zoom = motion ? zoom : 1; },
     get player() { return { x: person.x, y: person.y }; },

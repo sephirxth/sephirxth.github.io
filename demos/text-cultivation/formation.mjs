@@ -128,7 +128,7 @@ export function affinity(element, socketKinds) {
 }
 // Rune size sets its power; bigger runes also cost more ink.
 export const powerOf = (geom, aff) => Math.max(.6, Math.min(2.2, geom.size / 3)) * aff;
-export const INK_PER_CELL = 1.8;
+export const INK_PER_CELL = 1.3;
 
 // ---------- world effects ----------
 function each(world, cx, cy, R, fn) {
@@ -262,4 +262,113 @@ export function captureFrom(world, K, ring) {
   const taken = cells[best].sort((a, b) => Math.hypot(a[0] + .5 - c.x, a[1] + .5 - c.y) - Math.hypot(b[0] + .5 - c.x, b[1] + .5 - c.y)).slice(0, 16);
   const canonical = { water: K.WATER, fire: K.FIRE, wood: K.WOOD, metal: K.GOLD, earth: K.EARTH };
   return { element: best, kind: canonical[best], cells: taken };
+}
+
+// ---------- the magic circle (法阵) ----------
+// Eight anchors on the ring, clockwise from east (y points down), and one at the centre.
+export const ANCHORS = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'].map((name, i) => ({ name, i, x: Math.cos(i * Math.PI / 4), y: Math.sin(i * Math.PI / 4) }));
+const AT = Object.fromEntries(ANCHORS.map(a => [a.name, a.i]));
+export const SHAPES = {
+  fire: ['N', 'SE', 'SW'].map(n => AT[n]),
+  earth: ['NE', 'SE', 'SW', 'NW'].map(n => AT[n]),
+};
+export const REACH = .26;
+// The ring anchor a point (in circle units) touches, or -1.
+export function anchorAt(u) {
+  for (const a of ANCHORS) if (Math.hypot(u.x - a.x, u.y - a.y) < REACH) return a.i;
+  return -1;
+}
+const cyclicEqual = (seq, shape) => {
+  if (seq.length !== shape.length) return false;
+  for (let s = 0; s < shape.length; s++) for (const dir of [1, -1]) {
+    let ok = true;
+    for (let k = 0; k < shape.length && ok; k++) ok = seq[k] === shape[(s + dir * k + shape.length * 4) % shape.length];
+    if (ok) return true;
+  }
+  return false;
+};
+// Read a stroke from the anchors it touched, in order. `closed` means it ended near where it began.
+export function readRune(touched, closed) {
+  const seq = touched.filter((a, i) => i === 0 || a !== touched[i - 1]);
+  const loop = seq.length > 1 && seq[0] === seq[seq.length - 1];
+  const core = loop ? seq.slice(0, -1) : seq;
+  const shut = closed || loop;
+  if (shut && new Set(core).size >= 7) return 'capture';
+  if (shut && cyclicEqual(core, SHAPES.fire)) return 'fire';
+  if (shut && cyclicEqual(core, SHAPES.earth)) return 'earth';
+  if (!shut && core.length >= 3) {
+    const step = (core[1] - core[0] + 8) % 8;
+    if ((step === 1 || step === 7) && core.every((a, i) => i === 0 || (a - core[i - 1] + 8) % 8 === step)) return 'wind';
+  }
+  return null;
+}
+// The clean outline a recognised rune snaps to, in circle units.
+export function idealOutline(rune, touched) {
+  const pt = i => ({ x: ANCHORS[i].x, y: ANCHORS[i].y });
+  if (rune === 'fire') return [...SHAPES.fire, SHAPES.fire[0]].map(pt);
+  if (rune === 'earth') return [...SHAPES.earth, SHAPES.earth[0]].map(pt);
+  if (rune === 'capture') return Array.from({ length: 49 }, (_, i) => ({ x: Math.cos(i / 48 * Math.PI * 2), y: Math.sin(i / 48 * Math.PI * 2) }));
+  const seq = touched.filter((a, i) => i === 0 || a !== touched[i - 1]), out = [];
+  const a0 = seq[0] * Math.PI / 4, step = ((seq[1] - seq[0] + 8) % 8 === 1 ? 1 : -1) * Math.PI / 4, n = (seq.length - 1) * 6;
+  for (let k = 0; k <= n; k++) { const a = a0 + step * k / 6; out.push({ x: Math.cos(a), y: Math.sin(a) }); }
+  return out;
+}
+export const RUNE_GLYPH = { fire: '火', wind: '风', earth: '土', capture: '收' };
+export const keyOf = runes => runes.includes('capture') ? 'capture' : runes.length === 2 ? comboKey(runes[0], runes[1]) : runes[0];
+
+// 收 lands on a cell and draws in the connected cells of its element (up to sixteen).
+export function captureAt(world, K, x, y) {
+  const start = world.index(x, y), e = start >= 0 ? elementOf(world.kind[start]) : null;
+  if (!e) return null;
+  const seen = new Set([start]), queue = [start], cells = [];
+  while (queue.length && cells.length < 16) {
+    const i = queue.shift();
+    cells.push([i % world.width, Math.floor(i / world.width), world.kind[i]]);
+    for (const n of world.neighbors(i)) if (!seen.has(n) && elementOf(world.kind[n]) === e) { seen.add(n); queue.push(n); }
+  }
+  if (cells.length < 5) return null;
+  const canonical = { water: K.WATER, fire: K.FIRE, wood: K.WOOD, metal: K.GOLD, earth: K.EARTH };
+  return { element: e, kind: canonical[e], cells };
+}
+
+// Release toward `dir` from `origin` (grid cells). Wind spells blow from the caster; the rest fly
+// until they meet something, then act where they land. Returns a lingering spell.
+export function release(key, origin, dir, power, ctx) {
+  const { world, K, fx } = ctx;
+  const len = Math.hypot(dir.x, dir.y) || 1, d = { x: dir.x / len, y: dir.y / len };
+  const at = (center, extra = {}) => ({ center, dir: d, size: 3, box: { x0: center.x - 1.4 - .6 * power, x1: center.x + 1.4 + .6 * power, y0: center.y - 1.4 - .6 * power, y1: center.y + 1.4 + .6 * power }, ...extra });
+  if (key === 'wind' || key === 'wind+wind' || key === 'earth+wind') {
+    const length = key === 'wind' ? 8.2 : key === 'wind+wind' ? 14 : 10.8;
+    return cast(key, at({ x: origin.x + d.x * (length / 2 + 1), y: origin.y + d.y * (length / 2 + 1) }), power, ctx);
+  }
+  if (key === 'fire+wind') return cast(key, at({ x: origin.x + d.x * 1.5, y: origin.y }, { dir: { x: Math.sign(d.x) || 1, y: 0 } }), power, ctx);
+  const glyph = { fire: '火', 'fire+fire': '焰', earth: '土', 'earth+earth': '岳', 'earth+fire': '岩', capture: '收' }[key];
+  const col = { fire: [1, .55, .2], 'fire+fire': [1, .62, .25], earth: [.95, .72, .45], 'earth+earth': [.95, .72, .45], 'earth+fire': [1, .55, .2], capture: [1, .88, .55] }[key];
+  const speed = 18, range = 14 + 8 * power, pos = { x: origin.x, y: origin.y };
+  let travelled = 0, done = false;
+  const land = hit => {
+    done = true;
+    if (key === 'capture') { ctx.onCapture?.(hit ? captureAt(world, K, hit.x, hit.y) : null, pos); return; }
+    cast(key, at({ x: pos.x, y: pos.y }), power, ctx);
+  };
+  return {
+    update(dt) {
+      if (done) return false;
+      let moved = 0;
+      while (moved < speed * dt) {
+        const s = Math.min(.25, speed * dt - moved), nx = pos.x + d.x * s, ny = pos.y + d.y * s;
+        const cx = Math.floor(nx), cy = Math.floor(ny), i = world.index(cx, cy);
+        if (i < 0) { land(null); return false; }
+        if (world.kind[i] && travelled > 1.2) { land({ x: cx, y: cy }); return false; }
+        pos.x = nx; pos.y = ny; moved += s; travelled += s;
+        if (travelled >= range) { land(null); return false; }
+      }
+      if (fx) {
+        fx.add({ type: fx.kinds.glyph, glyph: ctx.glyphIndex[glyph], layer: 'add', x: pos.x, y: pos.y, s: .62, life: .07, col, a: 1 });
+        fx.add({ type: fx.kinds.star, layer: 'add', x: pos.x - d.x * .4, y: pos.y - d.y * .4, s: .3, life: .25, col, a: .8 });
+        if (key !== 'capture' && key !== 'earth' && Math.random() < .6) fx.add(fx.ember(pos.x, pos.y, .5));
+      }
+      return true;
+    },
+  };
 }

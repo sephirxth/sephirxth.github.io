@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recognize, cast, captureFrom, affinity, comboKey } from '../formation.mjs';
+import { recognize, cast, captureFrom, affinity, comboKey, readRune, anchorAt, ANCHORS, captureAt, release, keyOf } from '../formation.mjs';
 import { World, K } from '../simulation.mjs';
 import { relation, circulation } from '../inner.mjs';
 
@@ -75,4 +75,42 @@ test('五行 links: generation amplifies, overcoming damps', () => {
   assert.equal(relation(K.FIRE, K.WATER).kind, 'insulted');
   assert.equal(relation(K.ICE, K.WOOD).kind, 'generate', 'ice counts as water');
   assert.ok(circulation([K.WATER, K.WOOD, K.FIRE]) > circulation([K.FIRE, K.WOOD, K.WATER]));
+});
+
+// Anchor indices: E0 SE1 S2 SW3 W4 NW5 N6 NE7.
+test('the magic circle reads runes from the anchors a stroke touches', () => {
+  assert.equal(readRune([6, 1, 3, 6], false), 'fire', 'N, SE, SW and back to N');
+  assert.equal(readRune([3, 1, 6], true), 'fire', 'any start and direction, closed by ending near the start');
+  assert.equal(readRune([7, 1, 3, 5, 7], false), 'earth');
+  assert.equal(readRune([5, 3, 1, 7], true), 'earth', 'the square either way round');
+  assert.equal(readRune([4, 5, 6, 7, 0], false), 'wind', 'an arc along the ring');
+  assert.equal(readRune([2, 1, 0], false), 'wind', 'any three neighbouring anchors');
+  assert.equal(readRune([0, 1, 2, 3, 4, 5, 6, 7, 0], false), 'capture', 'once round the ring');
+  assert.equal(readRune([6, 1, 2, 3, 6], false), null, 'a triangle that strays onto S is not fire');
+  assert.equal(readRune([4, 6, 0], false), null, 'skipping anchors is not an arc');
+  assert.equal(readRune([6, 1, 3], false), null, 'an unclosed triangle');
+  assert.equal(anchorAt({ x: 0, y: -.95 }), 6);
+  assert.equal(anchorAt({ x: .3, y: .2 }), -1);
+  assert.equal(ANCHORS.length, 8);
+  assert.equal(keyOf(['fire', 'wind']), 'fire+wind');
+  assert.equal(keyOf(['wind', 'capture']), 'capture');
+});
+
+test('released runes fly until they meet something', () => {
+  const world = new World(40, 12, { ambient: false });
+  for (let y = 2; y < 10; y++) world.set(26, y, K.WOOD);
+  const ctx = { world, K, fx: null, emit() {}, glyphIndex: {} };
+  const ball = release('fire', { x: 6, y: 6 }, { x: 1, y: 0 }, 1, ctx);
+  let frames = 0;
+  while (ball.update(1 / 60) && frames < 200) frames++;
+  assert.ok(frames > 30 && frames < 120, `flew ${frames} frames`);
+  assert.ok(world.temp[world.index(26, 6)] > 600, 'the wood it struck is burning hot');
+  const lake = new World(30, 12, { ambient: false });
+  for (let x = 10; x < 20; x++) for (let y = 8; y < 11; y++) lake.set(x, y, K.WATER);
+  let got = null;
+  const pull = release('capture', { x: 3, y: 9 }, { x: 1, y: 0 }, 1, { world: lake, K, fx: null, emit() {}, glyphIndex: {}, onCapture: r => { got = r; } });
+  while (pull.update(1 / 60)) {}
+  assert.equal(got?.kind, K.WATER);
+  assert.equal(got.cells.length, 16, 'draws in sixteen connected cells');
+  assert.equal(captureAt(lake, K, 0, 0), null, 'empty air holds nothing');
 });

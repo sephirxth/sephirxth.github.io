@@ -185,3 +185,83 @@ footer a,footer span{white-space:nowrap}
 html[data-motion=reduced]{scroll-behavior:auto}
 html[data-motion=reduced] button,html[data-motion=reduced] .material::after,html[data-motion=reduced] .material .glyph,html[data-motion=reduced] .spirit{transition:none}
 html[data-motion=reduced] button:active{transform:none}
+
+/* ---------- full-screen game: the canvas fills the window, controls float over it ---------- */
+html,body{height:100%}
+body.game{overflow:hidden;background:#0b1430;min-width:0;overscroll-behavior:none}
+body.game main.stage{max-width:none;margin:0;padding:0;height:100%;position:relative}
+.stage .field-wrap{position:fixed;inset:0;border:0;outline:0;box-shadow:none;background:#0d1630}
+.stage canvas{width:100%;height:100%;aspect-ratio:auto;max-height:none}
+.hud{position:fixed;left:0;right:0;z-index:3;pointer-events:none;display:flex;gap:10px;padding:10px 12px;padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+.hud>*{pointer-events:auto}
+.hud-top{top:0;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding-top:max(10px,env(safe-area-inset-top))}
+.hud-bottom{bottom:0;flex-direction:column;align-items:center;gap:6px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.hud-bottom>p,.hud-bottom>span{pointer-events:none}
+.hud-panel{background:#0a1229b8;border:1px solid #c9a55747;border-radius:6px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 8px 24px -14px #000}
+.brand{padding:5px 12px}
+.brand-link{display:flex;align-items:baseline;gap:8px;text-decoration:none;color:#f3e3bb}
+.brand-link:hover{color:#fff3d6}
+.brand-title{font-family:BrushKai,serif;font-size:24px;letter-spacing:.06em;line-height:1.2}
+.brand-by{font-size:11px;color:#bfae86}
+.stage .toolbar{margin:0;padding:5px 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:#dfd2b2}
+.stage .toolbar .settings{margin-left:0;gap:10px}
+.stage .toolbar button,.stage .toolbar select{min-height:30px;padding:4px 10px;font-size:12px;color:#efe3c4;background:#14203f;border:1px solid #3a4a72;border-radius:4px}
+.stage .toolbar select{padding-right:22px}
+.stage .toolbar button:hover{background:#1c2c55;border-color:#c9a557}
+.stage .toolbar button.primary{background:#c9a557;color:#0b1430;border-color:#c9a557}
+.stage .toolbar button[aria-pressed=true]{background:#2a3762;border-color:#c9a557;color:#f3e3bb}
+.stage .toolbar button:disabled{opacity:.4}
+.stage .readout{border:0;padding:6px 12px;min-height:0;gap:12px;color:#dfd2b2;display:flex;align-items:center;font-size:12px}
+.stage #cell-info{flex:none;color:#bfae86;min-width:15ch;text-align:left}
+.stage .spirit{color:#efe3c4}
+.stage meter{width:90px;background:#1d2a4c}
+.stage meter::-webkit-meter-bar{background:#1d2a4c}
+.stage meter::-webkit-meter-optimum-value{background:#c9a557}
+.stage meter::-moz-meter-bar{background:#c9a557}
+.stage .tray{display:flex;align-items:center;gap:12px;padding:6px 8px;max-width:calc(100vw - 24px);overflow-x:auto}
+.stage .materials{display:flex;gap:5px;padding:0}
+.stage .material{min-width:46px;min-height:46px;padding:4px 6px;gap:4px}
+.stage .material .glyph{font-size:26px}
+.stage .material .shortcut{font-size:10px}
+.stage .satchel{padding:0;min-height:0;color:#bfae86;white-space:nowrap}
+.stage .satchel-label{color:#c9a557}
+.stage .notice,.stage #stage-status,.stage .material-hint{display:block;margin:0;font-size:12px;line-height:1.6;color:#efe3c4;text-shadow:0 1px 3px #000,0 0 12px #000;text-align:center;max-width:min(92vw,760px);min-height:0}
+.stage #stage-status{color:#f3d48b;font-size:13px;max-width:none}
+.stage .material-hint{color:#bfae86;font-size:11px}
+.stage .touch-move{margin:0;padding:6px 8px;color:#dfd2b2}
+.stage .touch-move button{color:#efe3c4;background:#14203f;border-color:#3a4a72}
+.stage .skip-opening{z-index:4;right:14px;bottom:auto;top:76px}
+.manual{position:fixed;inset:0;z-index:10;background:#050a18b8;display:grid;place-items:center;padding:20px}
+.manual[hidden]{display:none}
+.manual-card{position:relative;background:var(--paper);color:var(--ink);max-width:980px;width:100%;max-height:calc(100dvh - 40px);overflow:auto;border-radius:6px;padding:28px 32px 24px;box-shadow:0 30px 80px -20px #000}
+.manual-close{position:absolute;top:14px;right:14px}
+.manual h1{font-size:34px}
+.manual .rules{margin-top:18px}
+.manual footer{margin-top:26px}
+@media(max-width:900px){.stage #cell-info{display:none}}
+@media(max-width:760px){
+  .hud-top{gap:6px;padding:8px}
+  .brand-title{font-size:20px}
+  .stage .toolbar{gap:6px;padding:4px 6px}
+  .stage .toolbar .settings{gap:6px}
+  .stage .toolbar label{font-size:11px;gap:4px}
+  .stage .toolbar button,.stage .toolbar select{min-height:30px;padding:3px 7px;font-size:11px}
+  .stage .readout{padding:4px 8px}
+  .stage meter{width:60px}
+  .stage .material{min-width:40px;min-height:40px;padding:3px 4px}
+  .stage .material .glyph{font-size:22px}
+  .stage .material .shortcut{display:none}
+  .stage .satchel-hint{display:none}
+  .manual-card{padding:20px 18px}
+  .stage .skip-opening{top:auto;bottom:150px}
+}
+
+/* The dock holds the palette and touch controls; the canvas ends at its top edge. */
+.stage .field-wrap{bottom:var(--dock,0px)}
+.dock{display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:auto}
+.stage .material-hint{display:none}
+.stage .material[data-kind='0'] .glyph{font-size:13px}
+@media(max-width:760px){
+  .stage .tray{flex-direction:column;gap:6px;overflow:visible}
+  .stage .materials{flex-wrap:wrap;justify-content:center}
+}

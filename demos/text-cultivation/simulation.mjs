@@ -350,8 +350,8 @@ export function example(world, name = 'forest') {
         if (x >= 0 && x < w && y >= 1) world.set(x, y, ice ? K.ICE : K.EARTH, { temp: Math.min(ice ? 263 : 290, air(y)) });
       }
     };
-    const leftX = Math.round(w * .12), leftHalf = Math.max(3, Math.min(Math.round(w * .12), floor - 6));
-    const rightX = Math.round(w * .87), rightHalf = Math.max(4, Math.min(Math.round(w * .15), floor - 5));
+    const leftX = Math.round(w * .12), leftHalf = Math.max(3, Math.min(Math.round(w * .14), floor - 6));
+    const rightX = Math.round(w * .87), rightHalf = Math.max(4, Math.min(Math.round(w * .18), floor - 5));
     peak(leftX, leftHalf, 2); peak(rightX, rightHalf, 2);
     for (let j = 1; j <= 3; j++) world.set(rightX - 3 + j, floor - j, K.GOLD);
     const ridgeX = Math.round(w * .43);
@@ -370,9 +370,10 @@ export function example(world, name = 'forest') {
       world.set(x, top - 1, K.WOOD);
       if (x === tallest) strike = [x, top - 2];
     }
+    const cloud = Math.max(2, Math.round(h * .2));
     for (let x = Math.round(w * .18); x <= Math.round(w * .62); x++) {
-      if ((x * 7 + 3) % 5 !== 0) world.set(x, 2, K.STEAM);
-      if ((x * 5 + 1) % 3 !== 0 && x > w * .24 && x < w * .55) world.set(x, 3, K.STEAM);
+      if ((x * 7 + 3) % 5 !== 0) world.set(x, cloud, K.STEAM);
+      if ((x * 5 + 1) % 3 !== 0 && x > w * .24 && x < w * .55) world.set(x, cloud + 1, K.STEAM);
     }
     if (strike && strike[1] > 4) world.set(strike[0], strike[1], K.LIGHTNING);
   } else if (name === 'lightning') {
