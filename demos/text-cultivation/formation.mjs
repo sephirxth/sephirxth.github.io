@@ -294,8 +294,14 @@ export function readRune(touched, closed) {
   const core = loop ? seq.slice(0, -1) : seq;
   const shut = closed || loop;
   if (shut && new Set(core).size >= 7) return 'capture';
-  if (shut && cyclicEqual(core, SHAPES.fire)) return 'fire';
-  if (shut && cyclicEqual(core, SHAPES.earth)) return 'earth';
+  // A straight edge between two corner anchors can skim the ring anchor that sits between them
+  // (S under the triangle's base, E beside the square); such a pass-by does not count.
+  const skimmed = core.filter((a, i) => {
+    const p = core[(i - 1 + core.length) % core.length], n = core[(i + 1) % core.length];
+    return !(core.length > 3 && (((a - p + 8) % 8 === 1 && (n - a + 8) % 8 === 1) || ((p - a + 8) % 8 === 1 && (a - n + 8) % 8 === 1)));
+  });
+  if (shut && cyclicEqual(skimmed, SHAPES.fire)) return 'fire';
+  if (shut && cyclicEqual(skimmed, SHAPES.earth)) return 'earth';
   if (!shut && core.length >= 3) {
     const step = (core[1] - core[0] + 8) % 8;
     if ((step === 1 || step === 7) && core.every((a, i) => i === 0 || (a - core[i - 1] + 8) % 8 === step)) return 'wind';

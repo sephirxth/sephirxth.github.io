@@ -86,7 +86,10 @@ test('the magic circle reads runes from the anchors a stroke touches', () => {
   assert.equal(readRune([4, 5, 6, 7, 0], false), 'wind', 'an arc along the ring');
   assert.equal(readRune([2, 1, 0], false), 'wind', 'any three neighbouring anchors');
   assert.equal(readRune([0, 1, 2, 3, 4, 5, 6, 7, 0], false), 'capture', 'once round the ring');
-  assert.equal(readRune([6, 1, 2, 3, 6], false), null, 'a triangle that strays onto S is not fire');
+  assert.equal(readRune([6, 1, 2, 3, 6], false), 'fire', 'a sagging base that skims S is still fire');
+  assert.equal(readRune([7, 0, 1, 2, 3, 4, 5, 7], false), 'capture', 'seven anchors round is a capture, not a square');
+  assert.equal(readRune([7, 0, 1, 3, 5, 7], false), 'earth', 'a square edge that skims E is still earth');
+  assert.equal(readRune([6, 1, 3, 5, 6], false), null, 'four anchors that are not the square');
   assert.equal(readRune([4, 6, 0], false), null, 'skipping anchors is not an arc');
   assert.equal(readRune([6, 1, 3], false), null, 'an unclosed triangle');
   assert.equal(anchorAt({ x: 0, y: -.95 }), 6);
