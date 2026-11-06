@@ -5,6 +5,7 @@ import { createAudio } from './audio.mjs';
 import { createOpening } from './opening.mjs';
 import { createInner, SOCKETS, elementOf, relation } from './inner.mjs';
 import { affinity, RUNES, COMBOS, INK_PER_CELL, ANCHORS, anchorAt, readRune, idealOutline, keyOf, release } from './formation.mjs';
+import { createTrial, WAVES, WAVE_NAMES } from './trial.mjs';
 
 const $ = id => document.getElementById(id);
 let canvas = $('field');
@@ -188,24 +189,26 @@ $('pause').addEventListener('click', () => setPause(!simulation.paused));
 $('step').addEventListener('click', singleStep);
 $('speed').addEventListener('change', event => { simulation.speed = Number(event.target.value); });
 $('brush').addEventListener('change', event => { brush = Number(event.target.value); wake(); });
-function reset() {
-  example(world, $('example').value);
+function reset(scene = $('example').value) {
+  example(world, scene);
   simulation.spirit = simulation.maxSpirit; simulation.accumulator = 0; previousEvent = 0;
   pointer = null; lastPoint = null; drawCredit = 0;
   player.x = Math.floor(world.width * .16); player.y = startRow();
+  if (world.altar) { player.x = world.altar.x; player.y = world.altar.y; }
   effects.emit({ type: 'reset' });
   // The scene writes itself in first, then starts to evolve.
   holdUntil = presentTime + (fullMotion ? .62 : 0);
   sound('reset');
-  $('notice').textContent = ({ landscape: '雷落在最高的那棵树上，火会沿树冠烧开。高处的汽遇冷，会落成雨。', forest: '先看左边的火把木点着，再选水拖到火上。', water: '冰、水、汽会互相转化。试着加火，或给水加一道岸。', lightning: '金排连成导体。选雷，在金上方写一格，再看热与电往哪传。', blank: '这里是空的。先写一笔土，再放水，或种一排木。' })[$('example').value];
+  $('notice').textContent = ({ landscape: '雷落在最高的那棵树上，火会沿树冠烧开。高处的汽遇冷，会落成雨。', forest: '先看左边的火把木点着，再选水拖到火上。', water: '冰、水、汽会互相转化。试着加火，或给水加一道岸。', lightning: '金排连成导体。选雷，在金上方写一格，再看热与电往哪传。', blank: '这里是空的。先写一笔土，再放水，或种一排木。', trial: '劫台已就。妖物会从两边来。' })[scene];
   status('写下一个字，让它开始变化。', 2400);
   wake(); updateReadout();
 }
-$('reset').addEventListener('click', () => { endOpening(false); if (mode === 'inner') leaveInner(); reset(); });
-$('example').addEventListener('change', () => { if ($('example').value === 'opening') playOpening(); else { endOpening(false); reset(); } });
+$('reset').addEventListener('click', () => { endOpening(false); if (mode === 'inner') leaveInner(); if (trial.phase !== 'idle') startTrial(); else reset(); });
+$('example').addEventListener('change', () => { stopTrial(false); if ($('example').value === 'opening') playOpening(); else { endOpening(false); reset(); } });
 // Opening: 我 rides a sword of 金 through the thunder tribulation, then the 山水 scene begins.
 let opening = null;
 function playOpening() {
+  stopTrial(false);
   if (!effects.setStage || !fullMotion) { $('example').value = 'landscape'; reset(); return; }
   if (mode === 'inner') leaveInner();
   effects.fx.clear();
@@ -246,9 +249,17 @@ function applyMeridians() {
   simulation.maxSpirit = 180 + Math.round(total * 40);
   simulation.regen = .6 + total * .25;
   simulation.spirit = Math.min(simulation.spirit, simulation.maxSpirit);
+  if (trial.running) trial.setMaxHp(trialHp());
+}
+// 内观 is closed while demons are on the field; between waves it is open, and the trial waits.
+function innerBlocked() {
+  if (trial.phase !== 'fight') return false;
+  autoPush = false; breakAt = -1;
+  status('妖物环伺，入定不得。等这一重过去，调息时再内观。', 1800);
+  return true;
 }
 function enterInner() {
-  if (!inner || opening || mode === 'inner') return;
+  if (!inner || opening || mode === 'inner' || innerBlocked()) return;
   mode = 'inner'; pushLevel = 0; breakAt = -1; autoPush = false; pointer = null; circle = null;
   effects.setPush(0); effects.fx.clear(); effects.fx.flash(.7);
   effects.setStage(inner.stage); inner.enter();
@@ -276,6 +287,7 @@ canvas.addEventListener('wheel', event => {
   const p = pointF(event), near = Math.hypot(p.x - player.x - .5, p.y - player.y - .5) < 3.5;
   if (!near && pushLevel < .02) return;
   event.preventDefault();
+  if (event.deltaY < 0 && innerBlocked()) return;
   pushInputAt = presentTime;
   if (event.deltaY < 0) {
     // Each notch pushes less the deeper you are, and the membrane springs back between notches.
@@ -286,7 +298,7 @@ canvas.addEventListener('wheel', event => {
   } else pushLevel = Math.max(0, pushLevel - .2);
   wake();
 }, { passive: false });
-innerToggle?.addEventListener('click', () => { if (mode === 'inner') leaveInner(); else if (!opening && inner) { autoPush = true; pushInputAt = presentTime; wake(); } });
+innerToggle?.addEventListener('click', () => { if (mode === 'inner') leaveInner(); else if (!opening && inner && !innerBlocked()) { autoPush = true; pushInputAt = presentTime; wake(); } });
 const relationNames = { generate: '相生', same: '同气', drain: '泄气', overcome: '相克', insulted: '被克' };
 const relationText = (a, b) => { const r = relation(a, b); return `${materials[a].glyph}→${materials[b].glyph} ${relationNames[r.kind]}×${r.factor}`; };
 function innerPointer(event) {
@@ -322,7 +334,7 @@ function innerHover(event) {
   if (n >= 0) { const kind = inner.kinds()[n]; status(`${SOCKETS[n].name}：${kind ? `「${materials[kind].glyph}」` : '空'}`, 1200); $('cell-info').textContent = `${SOCKETS[n].name} · ${SOCKETS[n].role}`; }
   wake();
 }
-if (new URLSearchParams(location.search).has('debug')) globalThis.__tc = { get state() { return { mode, pushLevel: +pushLevel.toFixed(3), breakAt: +breakAt.toFixed(2), presentTime: +presentTime.toFixed(2), opening: Boolean(opening), total: inner?.total ?? 0, circle: circle && { phase: circle.phase, runes: circle.runes.join('+'), touched: circle.touched.join(','), right: circle.rightHeld }, guide: guide.debug }; } };
+if (new URLSearchParams(location.search).has('debug')) globalThis.__tc = { get state() { return { mode, pushLevel: +pushLevel.toFixed(3), breakAt: +breakAt.toFixed(2), presentTime: +presentTime.toFixed(2), opening: Boolean(opening), total: inner?.total ?? 0, circle: circle && { phase: circle.phase, runes: circle.runes.join('+'), touched: circle.touched.join(','), right: circle.rightHeld }, guide: guide.debug, trial: trial.state }; }, get trial() { return trial; }, world, player, simulation, cast(runes, dir) { summonCircle(false); circle.runes = runes.slice(); releaseCircle(dir); } };
 // 法阵 (after Lost Magic): hold the right button to call a circle around 我, draw runes across its
 // anchors with the left button, let go of the right button, aim, and click to release. Without a
 // right button (touch, or the 符 tool) tap to call the circle and flick outward from its centre to
@@ -414,6 +426,7 @@ function finishStroke() {
     circle.failAt = presentTime; status('一个法阵最多叠两个符；收要单独画', 1600); sound('dry', { x: circle.center.x }); return;
   }
   circle.runes.push(rune); circle.flashAt = presentTime;
+  circle.shapes = [...(circle.shapes || []), { rune, pts: idealOutline(rune, circle.touched), at: presentTime }];
   guide.hear('rune', rune);
   circle.snap = { pts: idealOutline(rune, circle.touched), at: presentTime };
   const combo = circle.runes.length === 2 ? COMBOS[keyOf(circle.runes)] : null;
@@ -440,7 +453,15 @@ function releaseCircle(dir) {
   const elements = c.runes.filter(r => r !== 'capture').map(r => RUNES[r].element);
   const aff = elements.length ? elements.reduce((s, e) => s + affinity(e, socketKinds()), 0) / elements.length : 1;
   const power = aff * (c.runes.length === 2 ? 1.3 : 1);
-  const spell = release(key, c.center, { x: dir.x / len, y: dir.y / len }, power, { world, K, fx: effects.fx, emit: event => effects.emit(event), glyphIndex: GLYPH_INDEX, onCapture: (got, at) => capture(got, at) });
+  const spell = release(key, c.center, { x: dir.x / len, y: dir.y / len }, power, {
+    world, K, fx: effects.fx, emit: event => effects.emit(event), glyphIndex: GLYPH_INDEX, onCapture: (got, at) => capture(got, at),
+    clearance: trial.running ? c.R * .85 : 1.2,
+    // In the 渡劫, missiles strike demons, 收 takes the weakened ones, and every spell hurts what it reaches.
+    hitFoe: p => trial.running ? trial.hitTest(p) : null,
+    onCaptureFoe: foe => trial.capture(foe),
+    onImpact: (k, at, p, foe, extra) => { if (trial.running) trial.impact(k, at, p, extra || {}); },
+    onArea: (element, at, radius, amount) => { if (trial.running) trial.damage(at, radius, element, amount); },
+  });
   if (spell) activeSpells.push(spell);
   guide.hear('release', { key, count: c.runes.length });
   const fx = effects.fx;
@@ -498,6 +519,14 @@ function circleOverlay() {
     marks.push({ type: fx.kinds.ring, layer: 'add', x: c.center.x + n.x * R, y: c.center.y + n.y * R, s: .55 + .22 * Math.sin(t * 8), col: [1, .95, .7], a: .95 * grow });
   }
   if (c.snap && t - c.snap.at < .6) ribbons.push({ pts: c.snap.pts.map(q => ({ x: c.center.x + q.x * R, y: c.center.y + q.y * R })), width: .1, col: [1, .95, .75], a: 1 - (t - c.snap.at) / .6 });
+  // Runes already drawn stay on the circle, glowing in their element's colour, until released.
+  const runeColor = { fire: [1, .5, .22], wind: [.7, .9, 1], earth: [.95, .72, .42], capture: [1, .9, .6] };
+  for (const sh of c.shapes || []) {
+    const age = t - sh.at, glow = .55 + .25 * Math.sin(t * 3 + sh.at * 7) + Math.max(0, .45 - age);
+    const pts = sh.pts.map(q => ({ x: c.center.x + q.x * R, y: c.center.y + q.y * R }));
+    ribbons.push({ pts, width: .14, col: runeColor[sh.rune], a: .35 * glow * grow });
+    ribbons.push({ pts, width: .05, col: [1, .97, .88], a: .8 * glow * grow });
+  }
   c.runes.forEach((r, i) => {
     const x = c.center.x + (c.runes.length === 1 ? 0 : (i ? .42 : -.42) * R), y = c.center.y + (c.runes.length === 2 ? .36 * R : 0);
     const bt = i < c.runes.length - 1 ? 1 : Math.min(1, (t - c.flashAt) / .25);
@@ -522,7 +551,8 @@ function worldOverlay() {
     o.marks.push({ type: ring, layer: 'add', x, y, s: 1.5 + .35 * Math.sin(t * 4), col: [1, .86, .5], a: .85 });
     o.marks.push({ type: ring, layer: 'add', x, y, s: 2.4 + .5 * Math.sin(t * 4 + 1.2), col: [1, .86, .5], a: .4 });
   }
-  return circle || o.marks.length ? o : null;
+  if (trial.phase !== 'idle') trial.overlay(o);
+  return circle || o.marks.length || o.actors.length || o.ribbons.length ? o : null;
 }
 // 新手引导: nine steps through the loop, each waiting for the player to do it. Shown once
 // (remembered in localStorage when it is available) and replayable from 说明.
@@ -557,7 +587,7 @@ const guide = (() => {
   function finish() {
     clearTarget();
     stepEl.textContent = '新手引导 · 完成';
-    textEl.innerHTML = `引导结束。灵力上限现在是 <b>${simulation.maxSpirit}</b>。再试试别的组合：<b>火＋土</b>熔岩、<b>风＋土</b>沙暴、<b>土＋土</b>山岳。玩法都在“说明”里。`;
+    textEl.innerHTML = `引导结束。灵力上限现在是 <b>${simulation.maxSpirit}</b>。再试试别的组合：<b>火＋土</b>熔岩、<b>风＋土</b>沙暴、<b>土＋土</b>山岳。准备好了就点上方的<b>渡劫</b>：七重妖劫，守住道心。`;
     doneButton.hidden = false; index = steps.length; remember();
   }
   function advance() {
@@ -572,7 +602,8 @@ const guide = (() => {
   doneButton.addEventListener('click', stop);
   $('guide-restart').addEventListener('click', () => { showManual(false); start(); });
   return {
-    maybeStart() { if (!seen() && index < 0) setTimeout(() => { if (!opening && index < 0) start(); }, 1400); },
+    maybeStart() { if (!seen() && index < 0) setTimeout(() => { if (!opening && index < 0 && trial.phase === 'idle') start(); }, 1400); },
+    stop() { if (index >= 0) stop(); },
     get debug() { return { index, written, advancing }; },
     hear(event, data) { const s = steps[index]; if (!advancing && s && s.hear(event, data)) advance(); },
     marksMe() { return Boolean(steps[index]?.me) && !circle && mode === 'world'; },
@@ -590,6 +621,132 @@ function gatherQi(event) {
   simulation.spirit = Math.min(simulation.maxSpirit, simulation.spirit + .35 * absorb);
   effects.emit({ type: 'qi', x: event.x, y: event.y });
 }
+// 渡劫: 我 sits on the altar through seven waves of demons; the third, fifth and seventh bring
+// thunder. The world keeps its rules, so everything learned in the sandbox is a weapon here.
+const trialHud = $('trial-hud'), trialEnd = $('trial-end'), trialToggle = $('trial-toggle'), banner = $('trial-banner');
+const BEST_KEY = 'tc-trial-best';
+const bestCleared = () => { try { return Number(localStorage.getItem(BEST_KEY)) || 0; } catch { return 0; } };
+const saveBest = n => { try { if (n > bestCleared()) localStorage.setItem(BEST_KEY, String(n)); } catch { /* Private mode: no record. */ } };
+const trialHp = () => 100 + Math.round((inner?.total ?? 0) * 15);
+const immuneNoted = new Set();
+const WAVE_TIPS = {
+  1: '第一重：木魅从两边来。火克木——画火符打它们，或在它们脚下写火。',
+  2: '第二重：火妖不怕火，怕水。在“我”身前写一道水，或引它们走进湖里。',
+  3: '第三重雷劫：落雷前地上会亮起光圈。在“我”头顶写一排金或木挡雷（土会落下，挡不住）。土傀会掘墙，风属木，克土。',
+  4: '第四重：冰魄会飞，还会冻住水面。火能融它，土克水。',
+  5: '第五重雷劫：四种妖一起来。屋顶被雷劈多了会烧、会熔，记得补。',
+  6: '第六重：妖物更多更凶。血条变金时用“收”收妖，收来的字能放进穴位。',
+  7: '第七重雷劫：最后一重。守住道心，就能飞升。',
+};
+function showBanner(text, sub = '', kind = '') {
+  if (!banner) return;
+  $('trial-banner-text').textContent = text; $('trial-banner-sub').textContent = sub;
+  banner.className = `trial-banner ${kind}`; void banner.offsetWidth; banner.classList.add('show');
+}
+const trial = createTrial({ world, K, player, fx: effects.fx || null, glyphIndex: GLYPH_INDEX, sound, hooks: {
+  emit: event => effects.emit(event),
+  note: text => note(text, 3500),
+  onRest(seconds, first, cleared) {
+    simulation.spirit = simulation.maxSpirit;
+    if (first) {
+      showBanner('渡劫', '七重劫 · 守住道心');
+      note('渡劫开始。“我”坐镇劫台，不能移动。妖物会从两边来，扑到“我”身上就伤道心；道心碎了就失败，撑过七重就飞升。趁现在先布防。', 6500);
+    } else {
+      showBanner(`第${WAVE_NAMES[cleared - 1]}重已过`, '调息 · 灵力回满');
+      note(`第${WAVE_NAMES[cleared - 1]}重已过。调息 ${Math.round(seconds)} 秒：道心回复一些，灵力回满。这时可以内观，换穴位里的字；内观时劫数暂停。`, 6500);
+    }
+    updateTrialHud();
+  },
+  onWave(n, thunder) {
+    showBanner(`第${WAVE_NAMES[n - 1]}重${thunder ? ' · 雷劫' : ''}`, n === WAVES ? '最后一重' : `七重劫 · 第 ${n} 重`, thunder ? 'thunder' : '');
+    note(WAVE_TIPS[n], 9000);
+    sound(thunder ? 'lightning' : 'reset', { x: world.width / 2, intensity: 1.4 });
+    updateTrialHud();
+  },
+  onHurt() { trialHud.classList.remove('hit'); void trialHud.offsetWidth; trialHud.classList.add('hit'); updateTrialHud(); },
+  onShield() { status('天雷落在顶上，挡住了', 1400); },
+  onImmune(e, element) {
+    const key = e.type + element; if (immuneNoted.has(key)) return; immuneNoted.add(key);
+    note({ firefire: '火妖不怕火。水克火：在它的路上写水，或引它下湖。', icewater: '冰魄不怕水，还会把水冻住。用火融它，或用土打它（土克水）。' }[key] || `${e.T.name}不怕这个。`, 5000);
+  },
+  onKill(e, sealed) {
+    for (let k = 0; k < 4; k++) effects.emit({ type: 'qi', x: Math.floor(e.x), y: Math.floor(e.y) });
+    simulation.spirit = Math.min(simulation.maxSpirit, simulation.spirit + (sealed ? 20 : 8));
+    const glyph = materials[e.T.gives].glyph;
+    if (sealed || Math.random() < .18) {
+      if (satchel.length < 6) {
+        satchel.push(e.T.gives); renderSatchel();
+        announce(glyph, { x: e.x, y: e.y - .6 }, [1, .88, .55], 1.2);
+        note(sealed ? `收服${e.T.name}，得一个「${glyph}」。调息时内观，把它放进穴位。` : `${e.T.name}散去，留下一个「${glyph}」，进了字囊。`, 3500);
+      } else if (sealed) note(`收服${e.T.name}，可字囊满了，妖气化成了灵气。`, 3000);
+    }
+    updateTrialHud();
+  },
+  onLose({ wave, kills }) { endTrialPanel(false, wave, kills); },
+  onWin({ kills, taken, seconds }) {
+    // 飞升: a burst of gold, and 我 rises out of the world before the card appears.
+    showBanner('飞升', `七重劫已过 · 斩妖 ${kills}`, 'win');
+    const fx = effects.fx, cx = player.x + .5, cy = player.y + .5;
+    if (fx) {
+      fx.flash(.9); fx.shake(.3);
+      for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; fx.add({ type: fx.kinds.streak, layer: 'add', x: cx + Math.cos(a), y: cy + Math.sin(a), vx: Math.cos(a) * 10, vy: Math.sin(a) * 10 - 2, s: .05, sy: .6, life: .9, col: [1, .86, .5], a: 1 }); }
+    }
+    announce('飞', { x: cx - .9, y: cy - 1.5 }, [1, .9, .6], 2.2);
+    announce('升', { x: cx + .9, y: cy - 1.5 }, [1, .9, .6], 2.2);
+    sound('lightning', { x: player.x, intensity: 2 });
+    player.y = 1;
+    setTimeout(() => { if (trial.phase === 'won') endTrialPanel(true, WAVES, kills, taken, seconds); }, 2600);
+  },
+} });
+function updateTrialHud() {
+  if (trial.phase === 'idle') return;
+  const s = trial.state, meter = $('daoxin');
+  meter.max = s.maxHp; meter.low = s.maxHp * .3; meter.high = s.maxHp * .6; meter.optimum = s.maxHp; meter.value = s.hp;
+  $('daoxin-number').textContent = `${Math.ceil(s.hp)} / ${s.maxHp}`;
+  const name = WAVE_NAMES[Math.max(0, s.wave - 1)];
+  $('trial-wave').textContent = s.phase === 'rest' ? (s.wave ? `调息 ${Math.ceil(s.restLeft)} 秒` : `${Math.ceil(s.restLeft)} 秒后起劫`) : s.phase === 'fight' ? `第${name}重${s.thunder ? ' · 雷劫' : ''}` : s.phase === 'won' ? '飞升' : '道心破碎';
+  $('trial-left').textContent = s.phase === 'fight' ? `余妖 ${s.left}` : s.phase === 'rest' ? `下一重：第${WAVE_NAMES[s.wave] ?? '七'}重` : '';
+}
+function endTrialPanel(won, wave, kills, taken = 0, seconds = 0) {
+  const cleared = won ? WAVES : Math.max(0, wave - 1), best = bestCleared();
+  saveBest(cleared);
+  trialEnd.classList.toggle('won', won);
+  $('trial-end-title').textContent = won ? '飞升' : '道心破碎';
+  $('trial-end-text').textContent = won
+    ? `七重劫全数渡过。斩妖 ${kills}，收妖 ${taken}，用时 ${Math.round(seconds)} 秒。`
+    : `止步第${WAVE_NAMES[Math.max(0, wave - 1)]}重，斩妖 ${kills}。${best > cleared ? `最好成绩是渡过 ${best} 重。` : cleared ? `渡过 ${cleared} 重，是目前最好的成绩。` : ''}先布防再起劫：水挡火妖，火烧木魅，金顶挡雷。`;
+  trialEnd.hidden = false;
+  $('trial-again').focus({ preventScroll: true });
+  updateTrialHud();
+}
+function startTrial() {
+  if (!effects.setOverlay || !effects.fx) return;
+  endOpening(false);
+  if (mode === 'inner') leaveInner();
+  guide.stop(); showManual(false);
+  circle = null; activeSpells.length = 0; pointer = null;
+  trialEnd.hidden = true;
+  if ($('example').value === 'opening') $('example').value = 'landscape';
+  reset('trial');
+  immuneNoted.clear();
+  trial.start({ maxHp: trialHp() });
+  trialHud.hidden = false;
+  trialToggle.setAttribute('aria-pressed', 'true'); trialToggle.textContent = '退出渡劫';
+  if (simulation.paused) setPause(false);
+  updateTrialHud(); wake();
+}
+function stopTrial(backToSandbox = true) {
+  if (trial.phase === 'idle') return;
+  trial.stop();
+  trialHud.hidden = true; trialEnd.hidden = true; banner?.classList.remove('show');
+  trialToggle.setAttribute('aria-pressed', 'false'); trialToggle.textContent = '渡劫';
+  if (backToSandbox) reset();
+  wake();
+}
+if (!effects.setOverlay || !effects.fx) trialToggle.hidden = true;
+trialToggle.addEventListener('click', () => { if (trial.phase !== 'idle') stopTrial(); else startTrial(); });
+$('trial-again').addEventListener('click', startTrial);
+$('trial-leave').addEventListener('click', () => stopTrial());
 setPause(reduceMotion.matches);
 function fit() {
   // Full-window canvases get big; hold the drawing buffer near 3.4 million pixels.
@@ -615,10 +772,11 @@ function updateReadout() {
   const events = world.events;
   const total = events.ignited + events.boiled + events.condensed + events.extinguished + events.melted;
   if (total > previousEvent && performance.now() > noteUntil) {
-    $('notice').textContent = `这片天地已发生：${[['木起火', events.ignited], ['水变汽', events.boiled], ['汽成水', events.condensed], ['接触灭火', events.extinguished], ['金熔化', events.melted]].filter(([, n]) => n).map(([s, n]) => `${s} ${n} 次`).join('，')}。`;
+    if (trial.phase === 'idle') $('notice').textContent = `这片天地已发生：${[['木起火', events.ignited], ['水变汽', events.boiled], ['汽成水', events.condensed], ['接触灭火', events.extinguished], ['金熔化', events.melted]].filter(([, n]) => n).map(([s, n]) => `${s} ${n} 次`).join('，')}。`;
     previousEvent = total;
   }
   if ($('stage-status') && stageUntil && performance.now() > stageUntil) { $('stage-status').textContent = ''; stageUntil = 0; }
+  updateTrialHud();
   updateActivity();
 }
 function point(event) {
@@ -715,6 +873,7 @@ canvas.addEventListener('lostpointercapture', releasePointer);
 canvas.addEventListener('pointerleave', () => { if (!pointer) { cursor = null; wake(); } });
 canvas.addEventListener('contextmenu', event => event.preventDefault());
 function move(dx, dy) {
+  if (trial.running) { player.dx = dx; player.dy = dy; status('渡劫时坐镇劫台，不能移动；回车仍可在身前写字', 1400); return; }
   player.dx = dx; player.dy = dy;
   const x = player.x, y = player.y;
   player.x = Math.max(0, Math.min(world.width - 1, player.x + dx));
@@ -739,7 +898,7 @@ document.addEventListener('keydown', event => {
   if (/^[0-9]$/.test(key)) selectMaterial(palette[(Number(key) + 9) % 10]);
   else if (key === 'e') selectMaterial(K.EMPTY);
   else if (key === 'f') selectMaterial(FORMATION);
-  else if (key === 'i') { if (mode === 'inner') leaveInner(); else if (!opening && inner) { autoPush = true; pushInputAt = presentTime; wake(); } }
+  else if (key === 'i') { if (mode === 'inner') leaveInner(); else if (!opening && inner && !innerBlocked()) { autoPush = true; pushInputAt = presentTime; wake(); } }
   else if (key === ' ' && event.target.tagName !== 'BUTTON') { event.preventDefault(); setPause(!simulation.paused); }
   else if (key === 'n') { setPause(true); singleStep(); }
   else if (key === 'enter' && event.target === canvas) { event.preventDefault(); writeAhead(); }
@@ -775,6 +934,7 @@ function frame(now) {
   if (opening) { opening.update(dt); if (opening.done) endOpening(); }
   else if (mode === 'inner') { inner.update(dt); simulation.spirit = Math.min(simulation.maxSpirit, simulation.spirit + simulation.regen * 20 * dt); }
   else if (presentTime >= holdUntil) simulation.advance(elapsed);
+  if (mode === 'world' && !opening && trial.running && !simulation.paused && presentTime >= holdUntil) trial.update(dt * simulation.speed);
   if (mode === 'world' && inner && !opening) {
     if (autoPush) {
       // The button pushes for you, with the same stall before the membrane gives.
@@ -803,5 +963,5 @@ function frame(now) {
     updateReadout(); lastReadout = now;
   }
   inFrame = false;
-  if (!simulation.paused || pointer || effects.active || dirty || stageUntil > now || spentUntil > now || pushLevel > 0 || activeSpells.length || circle || mode === 'inner') animation = requestAnimationFrame(frame);
+  if (!simulation.paused || pointer || effects.active || dirty || stageUntil > now || spentUntil > now || pushLevel > 0 || activeSpells.length || circle || mode === 'inner' || trial.running) animation = requestAnimationFrame(frame);
 }

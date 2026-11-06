@@ -1,6 +1,6 @@
 // WebGL2 renderer: indigo sutra paper (磁青纸), mineral-pigment glyphs, firelight, flames, fluids.
 // It only reads World state. Visual randomness uses Math.random(), never World.random().
-const GLYPHS = ['我', '水', '火', '木', '金', '土', '冰', '汽', '雷', '灰', '燃', '沸', '凝', '冻', '融', '熔', '铸', '熄', '霆', '剑', '渡', '劫', '飞', '升', '生', '克', '阵', '内', '观', '斩', '环', '爆', '镇', '风', '焰', '飓', '岳', '卷', '岩', '沙', '收', '灵', '符'];
+const GLYPHS = ['我', '水', '火', '木', '金', '土', '冰', '汽', '雷', '灰', '燃', '沸', '凝', '冻', '融', '熔', '铸', '熄', '霆', '剑', '渡', '劫', '飞', '升', '生', '克', '阵', '内', '观', '斩', '环', '爆', '镇', '风', '焰', '飓', '岳', '卷', '岩', '沙', '收', '灵', '符', '妖', '魅', '傀', '魄'];
 export const GLYPH_INDEX = Object.fromEntries(GLYPHS.map((ch, i) => [ch, i]));
 const LABELS = { ignite: 10, boil: 11, condense: 12, freeze: 13, thaw: 14, melt: 15, solidify: 16, extinguish: 17, lightning: 18 };
 const ATLAS_COLS = 8, ATLAS_ROWS = 6, ATLAS_CELL = 128, SPREAD = 16;
@@ -494,10 +494,13 @@ void main(){
   if (vMode < .5) {
     float core = exp(-s*s*14.), glow = exp(-s*s*2.2);
     o = vec4(mix(vCol.rgb, vec3(1.), core*.85)*(core*1.25 + glow*.45)*vCol.a, 1.);
-  } else {
+  } else if (vMode < 1.5) {
     float edge = 1. - smoothstep(.5, 1., abs(s));
     float streak = smoothstep(.28, .62, vnoise(vec2(vSA.y*2.6, s*5.5 + 3.)));
     o = vec4(vCol.rgb, vCol.a*edge*(.3 + .7*streak));
+  } else {
+    // Flat bars (a demon's health): solid colour, soft edge, drawn over the world.
+    o = vec4(vCol.rgb, vCol.a*(1. - smoothstep(.65, 1., abs(s))));
   }
 }`;
 
@@ -1137,13 +1140,14 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       if (b.flicker && motion) I *= t < .08 ? 1 : t < .13 ? .25 : t < .2 ? .9 : 1 - t * .6;
       pushRibbon(b.pts, b.width, b.col, () => I, 0);
     }
-    for (const src of [stage, stage ? null : overlay]) if (src?.ribbons) { const u = src.unit ?? 1; for (const rb of src.ribbons) pushRibbon(rb.pts.map(q => ({ x: q.x * u, y: q.y * u })), rb.width * u, rb.col, () => rb.a ?? 1, 0); }
+    for (const src of [stage, stage ? null : overlay]) if (src?.ribbons) { const u = src.unit ?? 1; for (const rb of src.ribbons) if (!rb.flat) pushRibbon(rb.pts.map(q => ({ x: q.x * u, y: q.y * u })), rb.width * u, rb.col, () => rb.a ?? 1, 0); }
     const boltVerts = ribbonCount;
     for (const s of trail) {
       const t = clamp((now - s.t) / (s.life ?? 1.1), 0, 1);
       const col = PIGMENT[s.kind] || [.6, .68, .82];
       pushRibbon([{ x: s.x0, y: s.y0 }, { x: s.x1, y: s.y1 }], s.w, s.kind ? col : [.45, .55, .72], () => .3 * (1 - t) * (1 - t), 1);
     }
+    if (!stage && overlay?.ribbons) for (const rb of overlay.ribbons) if (rb.flat) pushRibbon(rb.pts, rb.width, rb.col, () => rb.a ?? 1, 2);
     return boltVerts;
   }
   function drawRibbons(from, count) {

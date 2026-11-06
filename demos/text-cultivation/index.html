@@ -30,7 +30,8 @@
           <label>示例 <select id="example"><option value="landscape" selected>山水</option><option value="opening">开场：剑修渡劫</option><option value="forest">火点木</option><option value="water">水与冰</option><option value="lightning">雷与金</option><option value="blank">空白天地</option></select></label>
           <label>笔宽 <select id="brush"><option value="0" selected>1 格</option><option value="1">3 格</option><option value="2">5 格</option></select></label>
         </div>
-        <div class="feedback-controls" role="group" aria-label="内观、声音与画面">
+        <div class="feedback-controls" role="group" aria-label="渡劫、内观、声音与画面">
+          <button id="trial-toggle" class="trial-toggle" type="button" aria-pressed="false" title="七重劫：妖物来袭，天雷落下，守住道心">渡劫</button>
           <button id="inner-toggle" type="button" aria-pressed="false" title="对着“我”滚轮一直往里推，也可以点这里">内观</button>
           <button id="sound-toggle" type="button" aria-pressed="false" title="开启材料声音">声音 关</button>
           <button id="motion-toggle" type="button" aria-pressed="true" title="切换减少动态效果">动态 完整</button>
@@ -58,6 +59,19 @@
       </div>
       </div>
     </div>
+    <div class="trial-hud" id="trial-hud" hidden>
+      <span class="trial-wave" id="trial-wave">渡劫</span>
+      <label class="daoxin">道心 <meter id="daoxin" min="0" max="100" value="100" low="30" optimum="100">100</meter><output id="daoxin-number">100 / 100</output></label>
+      <span class="trial-left" id="trial-left"></span>
+    </div>
+    <div class="trial-banner" id="trial-banner" aria-hidden="true"><span id="trial-banner-text"></span><small id="trial-banner-sub"></small></div>
+    <div class="trial-end" id="trial-end" hidden>
+      <div class="trial-end-card" role="dialog" aria-labelledby="trial-end-title">
+        <h2 id="trial-end-title">道心破碎</h2>
+        <p id="trial-end-text"></p>
+        <div class="trial-end-actions"><button id="trial-again" type="button" class="primary">再渡一次</button><button id="trial-leave" type="button">回到沙盘</button></div>
+      </div>
+    </div>
     <div class="guide" id="guide" hidden role="status" aria-live="polite">
       <div class="guide-head"><span class="guide-step" id="guide-step"></span><button id="guide-skip" class="guide-skip" type="button">跳过引导</button></div>
       <p class="guide-text" id="guide-text"></p>
@@ -69,19 +83,20 @@
         <button id="guide-restart" class="guide-restart" type="button">重看新手引导</button>
         <h1>文字修仙</h1>
         <p class="intro">选一个字，在纸上拖动。水会流，木会燃。</p>
-        <p id="keyboard-help" class="keyboard-help">拖动写字。1–8 选材料，9 或 E 擦除。按住右键唤出法阵，左键在阵中画符，松开右键选方向，左键释放；没有右键时选“符”（0 或 F）点画布唤阵，从阵心向外一划释放。对着“我”滚轮往里推（或按 I）进入内观，Esc 出定。空格暂停，N 单步。方向键或 WASD 移动“我”，回车在身前写字。</p>
+        <p id="keyboard-help" class="keyboard-help">点“渡劫”开始七重劫。拖动写字。1–8 选材料，9 或 E 擦除。按住右键唤出法阵，左键在阵中画符，松开右键选方向，左键释放；没有右键时选“符”（0 或 F）点画布唤阵，从阵心向外一划释放。对着“我”滚轮往里推（或按 I）进入内观，Esc 出定。空格暂停，N 单步。方向键或 WASD 移动“我”，回车在身前写字。</p>
         <section id="rules" class="rules">
           <div><h2>每个字，只看邻格。</h2><p>这是元胞自动机。天地分成小格，每一格按同一套局部规则更新。你写下材料，规则接着往下演。</p></div>
           <dl>
             <div><dt>热与相变</dt><dd>热量在上下左右传递。水高于 373 K 变汽，汽低于 280 K 成水；冰高于 273 K 融化。K 是温度单位，273 K 约为 0°C。上方空气更冷。</dd></div>
             <div><dt>燃烧与灭火</dt><dd>木高于 600 K 起火，有燃料才持续产热，燃尽留下灰。水、冰接触火会消耗燃料，自身也会受热。试着在木排中擦开一道空隙，阻断传热。</dd></div>
             <div><dt>雷与金</dt><dd>雷短暂放热，电荷沿相邻的金、水、冰传递，每一格都会衰减。金高于 1370 K 会熔化流动，冷却后凝固。土会下落、堆积，用来垒岸。</dd></div>
-            <div><dt>写字与灵力</dt><dd>每写一格消耗 1 点灵力，上限 180，每秒恢复 12，内观之后还能提高。擦除免费，暂停时灵力也暂停。方向键移动“我”，回车在身前写字。这里没有战斗或通关目标。</dd></div>
+            <div><dt>写字与灵力</dt><dd>每写一格消耗 1 点灵力，上限 180，每秒恢复 12，内观之后还能提高。擦除免费，暂停时灵力也暂停。方向键移动“我”，回车在身前写字。</dd></div>
             <div><dt>内观与穴位</dt><dd>对着“我”滚轮一直往里推，越往里阻力越大，停下会弹回，推破才进得去。下丹田、泥丸、膻中连成小周天，只能放从天地里收来的字：在字囊里点一个字，再点穴位。灵气从下丹田沿督脉上行，过泥丸、膻中回到下丹田；前一穴的字生后一穴，灵气放大，克则削弱。周天越旺，灵力越多、恢复越快，反应回流的灵气也越多。穴位里的字还定下各种符的亲和，风算木，木生火。</dd></div>
             <div><dt>法阵与符</dt><dd>按住右键，“我”身边亮起法阵，阵上有八个锚点。按住右键不放，用左键连锚点画符：上、右下、左下连成三角为火；四个斜角连成方为土；沿阵边画一段弧为风；绕阵一圈为收。认出的符落进阵里，最多叠两个成阵：火＋火烈焰，风＋风飓风，土＋土山岳，火＋风火龙卷，火＋土熔岩，风＋土沙暴。松开右键，移动鼠标选方向，左键释放；右键或 Esc 收起。火、土、熔岩和收会飞出去，碰到东西才发作；风从“我”身上吹出。画符按笔画长短耗灵力。燃烧、沸腾、熔化之类的反应会冒出灵气，飞回“我”身上。</dd></div>
+            <div><dt>渡劫</dt><dd>点上方“渡劫”开始七重劫。“我”坐镇劫台，不能移动；妖物从两边来，扑到“我”身上就伤道心，道心碎了就失败，撑过七重就飞升。妖物也守天地的规矩：火烧、水泡、雷电、土埋、风吹都对它们起作用。五行相克：水克火妖，土克冰魄，风属木、克土傀，雷属金、克木魅；火还能烧木魅、融冰魄。第三、五、七重有天雷，落地前会亮起光圈，在“我”头顶写一排金或木就能挡住（土会落下，挡不住）。妖物血条变金时，用“收”打它，能收进字囊。两重之间调息时灵力回满，可以内观换穴位里的字。</dd></div>
           </dl>
         </section>
-        <footer><p>独立网页实验，基于 v11 材料规则。沿用原型的材料和温度阈值，把连续粒子改成邻格运动，新增土与接触灭火；未包含原版的创世生态、渡劫与死亡。声音默认关闭，开启后可听见材料变化。画面仿磁青纸泥金写经，字形为马善政毛笔楷书（SIL OFL 1.1）。施法方式参照《失落的魔法》。</p><a href="https://sephirxth.github.io/projects/text-cultivation/">阅读原型记录 ↗</a><span>游渊 YouYuan · 2026</span></footer>
+        <footer><p>独立网页实验，基于 v11 材料规则。沿用原型的材料和温度阈值，把连续粒子改成邻格运动，新增土与接触灭火；渡劫是新做的七重劫，未包含原版的创世生态。声音默认关闭，开启后可听见材料变化。画面仿磁青纸泥金写经，字形为马善政毛笔楷书（SIL OFL 1.1）。施法方式参照《失落的魔法》。</p><a href="https://sephirxth.github.io/projects/text-cultivation/">阅读原型记录 ↗</a><span>游渊 YouYuan · 2026</span></footer>
       </div>
     </div>
   </main>

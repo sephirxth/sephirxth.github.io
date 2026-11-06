@@ -292,7 +292,8 @@ export class World {
         const n = this.index(x + mx, y + my);
         if (n >= 0 && this.kind[n]) this.temp[n] = Math.min(6000, this.temp[n] + s * 60);
       }
-      const mobility = kind === K.FIRE && this.residue[i] > 0 ? 0 : WIND_MOBILITY[kind] || 0;
+      // Burning wood (fire with residue) and packed earth (earth with residue, the 渡劫 altar) stay put.
+      const mobility = (kind === K.FIRE || kind === K.EARTH) && this.residue[i] > 0 ? 0 : WIND_MOBILITY[kind] || 0;
       if (!mobility || this.random() >= Math.min(.9, s * mobility)) continue;
       if (!attempt(i, x + mx, y + my, () => false) && mx && my) {
         if (!attempt(i, x + mx, y, () => false)) attempt(i, x, y + my, () => false);
@@ -335,6 +336,7 @@ export function example(world, name = 'forest') {
   for (const key of Object.keys(world.events)) world.events[key] = 0;
   const w = world.width, h = world.height, floor = h - 4;
   const line = (x1, x2, y, kind) => { for (let x = x1; x <= x2; x++) world.set(x, y, kind); };
+  world.altar = null;
   if (name === 'blank') return;
   for (let x = 0; x < w; x++) for (let y = h - 3; y < h; y++) world.set(x, y, K.EARTH);
   if (name === 'forest') {
@@ -391,6 +393,19 @@ export function example(world, name = 'forest') {
       if ((x * 5 + 1) % 3 !== 0 && x > w * .24 && x < w * .55) world.set(x, cloud + 1, K.STEAM);
     }
     if (strike && strike[1] > 4) world.set(strike[0], strike[1], K.LIGHTNING);
+  } else if (name === 'trial') {
+    // 渡劫: 我 sits on a stepped earth altar in the middle. A sunken pond lies to the left and a
+    // grove to the right, so the world itself can be turned against what comes from either side.
+    const cx = Math.floor(w / 2), steps = 4;
+    for (let j = 0; j < steps; j++) for (let x = cx - (5 - j); x <= cx + (5 - j); x++) world.set(x, floor - j, K.EARTH, { residue: 1 });
+    world.altar = { x: cx, y: floor - steps };
+    for (let x = Math.round(w * .17); x <= Math.round(w * .31); x++) for (let y = h - 3; y < h - 1; y++) world.set(x, y, K.WATER);
+    for (const fx of [.68, .74, .8]) {
+      const x = Math.round(w * fx), top = floor - 3 - (x % 2);
+      for (let y = floor; y > top; y--) world.set(x, y, K.WOOD);
+      line(x - 1, x + 1, top, K.WOOD);
+      world.set(x, top - 1, K.WOOD);
+    }
   } else if (name === 'lightning') {
     const c = Math.floor(w / 2);
     line(5, w - 6, floor - 4, K.GOLD);

@@ -283,3 +283,41 @@ body.game main.stage{max-width:none;margin:0;padding:0;height:100%;position:rela
 .guide-restart{position:absolute;top:14px;right:74px;color:var(--ink);background:transparent;border-color:var(--line)}
 @media(prefers-reduced-motion:reduce){.guide-target,.guide.flash{animation:none}}
 @media(max-width:760px){.guide-text{font-size:14px}.guide{padding:8px 12px 10px}.guide-restart{position:static;margin:0 0 10px}}
+
+/* 渡劫: the 道心 bar under the top HUD, a calligraphic banner for each wave, and the end card. */
+.stage .toolbar button.trial-toggle{color:#ffe2b8;background:#3a1612;border-color:#a0472f}
+.stage .toolbar button.trial-toggle:hover{background:#561d15;border-color:#e6c06a}
+.stage .toolbar button.trial-toggle[aria-pressed=true]{background:#14203f;border-color:#3a4a72;color:#efe3c4}
+.trial-hud{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--hud-top,64px) + 8px);z-index:5;display:flex;align-items:center;gap:14px;padding:6px 14px;background:#0a1229d0;border:1px solid #a0472f88;border-radius:6px;color:#efe3c4;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:0 8px 24px -14px #000;pointer-events:none}
+.trial-hud[hidden]{display:none}
+.trial-wave{font-family:BrushKai,serif;font-size:20px;letter-spacing:.08em;color:#f3d48b}
+.daoxin{display:flex;align-items:center;gap:8px;color:#ffd9c9}
+.daoxin meter{width:min(240px,34vw);height:9px;background:#2a1520;border-radius:0}
+.daoxin meter::-webkit-meter-bar{height:9px;background:#2a1520;border:0;border-radius:0}
+.daoxin meter::-webkit-meter-optimum-value{background:linear-gradient(90deg,#b8322a,#ff7a52);transition:width .25s}
+.daoxin meter::-webkit-meter-suboptimum-value,.daoxin meter::-webkit-meter-even-less-good-value{background:#ff4b3a}
+.daoxin meter::-moz-meter-bar{background:linear-gradient(90deg,#b8322a,#ff7a52)}
+.daoxin output{min-width:64px}
+.trial-left{color:#cdb9ff;min-width:5em}
+.trial-hud.hit{animation:trial-hit .35s ease-out}
+@keyframes trial-hit{0%{box-shadow:0 0 0 2px #ff5a45,0 0 30px 6px #ff3a2a88;transform:translateX(-50%) scale(1.04)}100%{box-shadow:0 8px 24px -14px #000;transform:translateX(-50%)}}
+.trial-banner{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;opacity:0;text-align:center}
+.trial-banner span{font-family:BrushKai,serif;font-size:clamp(44px,8vw,96px);letter-spacing:.12em;color:#ffe9b8;text-shadow:0 0 18px #e6a64a,0 0 46px #b8322a,0 3px 8px #000}
+.trial-banner small{font-size:clamp(13px,1.6vw,17px);color:#f3e3bb;text-shadow:0 1px 4px #000,0 0 12px #000;letter-spacing:.1em}
+.trial-banner.show{animation:trial-banner 2.6s var(--ease) forwards}
+.trial-banner.thunder span{color:#efe6ff;text-shadow:0 0 18px #a88cff,0 0 50px #6a4cff,0 3px 8px #000}
+.trial-banner.win span{color:#fff3d6;text-shadow:0 0 24px #ffd77a,0 0 70px #e6a64a,0 3px 8px #000}
+@keyframes trial-banner{0%{opacity:0;transform:translate(-50%,-50%) scale(1.25);filter:blur(6px)}14%{opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0)}78%{opacity:1}100%{opacity:0;transform:translate(-50%,-56%) scale(.98)}}
+.trial-end{position:fixed;inset:0;z-index:9;display:grid;place-items:center;background:#050a1899;padding:20px}
+.trial-end[hidden]{display:none}
+.trial-end-card{width:min(440px,100%);background:#0a1229f2;border:1px solid #c9a557;border-radius:8px;padding:22px 24px 20px;color:#f3e3bb;text-align:center;box-shadow:0 0 0 1px #c9a55733,0 30px 70px -20px #000,0 0 48px -16px #c9a557}
+.trial-end-card h2{font-family:BrushKai,serif;font-weight:400;font-size:44px;letter-spacing:.12em;margin:0 0 6px;color:#ffe2b8}
+.trial-end.won .trial-end-card h2{color:#fff3d6;text-shadow:0 0 22px #e6a64a}
+.trial-end-card p{margin:0 0 16px;font-size:14px;line-height:1.8;color:#e6dcc0}
+.trial-end-actions{display:flex;gap:10px;justify-content:center}
+.trial-end-actions button{min-height:36px;padding:6px 16px;font-size:14px;color:#efe3c4;background:#14203f;border:1px solid #3a4a72;border-radius:4px}
+.trial-end-actions button.primary{background:#c9a557;color:#0b1430;border-color:#c9a557}
+.trial-end-actions button:hover{border-color:#e6c06a}
+@media(prefers-reduced-motion:reduce){.trial-banner.show{animation:trial-banner-still 2.6s linear forwards}.trial-hud.hit{animation:none}}
+@keyframes trial-banner-still{0%,85%{opacity:1}100%{opacity:0}}
+@media(max-width:760px){.trial-hud{gap:8px;padding:4px 10px;font-size:12px}.trial-wave{font-size:17px}.trial-left{display:none}}

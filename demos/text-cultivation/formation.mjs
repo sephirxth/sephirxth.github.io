@@ -217,6 +217,7 @@ export function cast(key, geom, power, ctx) {
       pos.y += (ground(pos.x) - pos.y) * .5;
       sprinkle(ctx, pos.x, pos.y - 1, 1.3, K.FIRE, .4, { fuel: 1.2, residue: .15 });
       heat(world, pos.x, pos.y, 1.8, 420 * power);
+      ctx.onArea?.('fire', { x: pos.x, y: pos.y - .8 }, 2, 24 * power * dt);
       for (let k = 0; k < 4; k++) {
         const a = t * 9 + k * Math.PI / 2, ox = Math.cos(a) * 1.6, oy = Math.sin(a) * 1.6;
         world.addWind(pos.x + ox, pos.y + oy, 1.6, (-oy * .9 + dir.x * .6) * .08 * power, (ox * .9 - 1.2) * .08 * power);
@@ -343,19 +344,28 @@ export function release(key, origin, dir, power, ctx) {
   const { world, K, fx } = ctx;
   const len = Math.hypot(dir.x, dir.y) || 1, d = { x: dir.x / len, y: dir.y / len };
   const at = (center, extra = {}) => ({ center, dir: d, size: 3, box: { x0: center.x - 1.4 - .6 * power, x1: center.x + 1.4 + .6 * power, y0: center.y - 1.4 - .6 * power, y1: center.y + 1.4 + .6 * power }, ...extra });
+  // Spells that act on their own also tell the caller where they act (demons in the 渡劫 feel it).
   if (key === 'wind' || key === 'wind+wind' || key === 'earth+wind') {
-    const length = key === 'wind' ? 8.2 : key === 'wind+wind' ? 14 : 10.8;
-    return cast(key, at({ x: origin.x + d.x * (length / 2 + 1), y: origin.y + d.y * (length / 2 + 1) }), power, ctx);
+    const length = key === 'wind' ? 8.2 : key === 'wind+wind' ? 14 : 10.8, center = { x: origin.x + d.x * (length / 2 + 1), y: origin.y + d.y * (length / 2 + 1) };
+    const spell = cast(key, at(center), power, ctx);
+    ctx.onImpact?.(key, center, power, null, { dir: d, length: length + 2, radius: key === 'wind+wind' ? 3.5 : 2.5 });
+    return spell;
   }
   if (key === 'fire+wind') return cast(key, at({ x: origin.x + d.x * 1.5, y: origin.y }, { dir: { x: Math.sign(d.x) || 1, y: 0 } }), power, ctx);
   const glyph = { fire: '火', 'fire+fire': '焰', earth: '土', 'earth+earth': '岳', 'earth+fire': '岩', capture: '收' }[key];
   const col = { fire: [1, .55, .2], 'fire+fire': [1, .62, .25], earth: [.95, .72, .45], 'earth+earth': [.95, .72, .45], 'earth+fire': [1, .55, .2], capture: [1, .88, .55] }[key];
-  const speed = 18, range = 14 + 8 * power, pos = { x: origin.x, y: origin.y };
+  // Inside `clearance` (the circle, on the 渡劫 altar) a missile passes over the ground it was cast from.
+  const speed = 18, range = 14 + 8 * power, pos = { x: origin.x, y: origin.y }, clearance = Math.max(1.2, ctx.clearance ?? 1.2);
   let travelled = 0, done = false;
-  const land = hit => {
+  const land = (hit, foe = null) => {
     done = true;
-    if (key === 'capture') { ctx.onCapture?.(hit ? captureAt(world, K, hit.x, hit.y) : null, pos); return; }
+    if (key === 'capture') {
+      if (foe && ctx.onCaptureFoe) ctx.onCaptureFoe(foe, pos);
+      else ctx.onCapture?.(hit ? captureAt(world, K, hit.x, hit.y) : null, pos);
+      return;
+    }
     cast(key, at({ x: pos.x, y: pos.y }), power, ctx);
+    ctx.onImpact?.(key, { x: pos.x, y: pos.y }, power, foe);
   };
   return {
     update(dt) {
@@ -365,7 +375,9 @@ export function release(key, origin, dir, power, ctx) {
         const s = Math.min(.25, speed * dt - moved), nx = pos.x + d.x * s, ny = pos.y + d.y * s;
         const cx = Math.floor(nx), cy = Math.floor(ny), i = world.index(cx, cy);
         if (i < 0) { land(null); return false; }
-        if (world.kind[i] && travelled > 1.2) { land({ x: cx, y: cy }); return false; }
+        const foe = travelled > .8 ? ctx.hitFoe?.({ x: nx, y: ny }) : null;
+        if (foe) { pos.x = nx; pos.y = ny; land({ x: cx, y: cy }, foe); return false; }
+        if (world.kind[i] && travelled > clearance) { land({ x: cx, y: cy }); return false; }
         pos.x = nx; pos.y = ny; moved += s; travelled += s;
         if (travelled >= range) { land(null); return false; }
       }
