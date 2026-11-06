@@ -69,56 +69,226 @@ void main(){
 }`;
 
 const BACKDROP_FS = HEAD + `in vec2 vUV; out vec4 o;
-uniform vec2 uParallax; uniform float uTime, uRise, uAspect, uMotion;
+uniform vec2 uParallax; uniform float uTime, uRise, uAspect, uMotion, uDetail;
 ${NOISE}
+const vec3 GOLD = vec3(1., .78, .42);
 vec4 over(vec4 top, vec4 under){ return vec4(top.rgb + under.rgb*(1. - top.a), top.a + under.a*(1. - top.a)); }
 float ridged(vec2 p){ float s = 0., a = .5; for (int i = 0; i < 4; i++){ float n = 1. - abs(vnoise(p)*2. - 1.); s += a*n*n; p = p*2.07 + vec2(13.1, 7.7); a *= .5; } return s/.9375; }
-// One ink-wash range: sharp ridged peaks, a faint moonlit rim, the body dissolving into mist below.
-vec4 range(vec2 uv, float depth, float base, float amp, float freq, float seed, vec3 tint, float alpha){
-  vec2 p = uv + vec2(uParallax.x*depth, uParallax.y*depth*.5 - uRise*depth*9.);
-  float x = p.x*uAspect;
-  float h = base + amp*(ridged(vec2(x*freq + seed, seed*1.7)) - .45);
-  float edge = smoothstep(h + .0025, h - .0025, p.y);
-  if (edge <= 0.) return vec4(0.);
+float sdSeg(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba)/dot(ba, ba), 0., 1.); return length(pa - ba*h); }
+// Every layer sits at a depth: the nearer it is, the further it slides against the pointer and
+// the faster it sinks while the opening rises. x is in aspect units, y runs up from the bottom.
+vec2 layer(vec2 uv, float depth){ return vec2((uv.x + uParallax.x*depth)*uAspect, uv.y + uParallax.y*depth*.5 + uRise*depth*9.); }
+float ridge(float x, float base, float amp, float freq, float seed){ return base + amp*(ridged(vec2(x*freq + seed, seed*1.7)) - .45); }
+// One ink-wash range below height h: brush streaks in the body, a gold contour (泥金勾勒) that is
+// brightest on slopes facing the moon, and a body that dissolves into mist further down.
+vec4 inkRange(vec2 p, float h, float lit, vec3 tint, float alpha, float gold, float line, vec3 mist){
   float below = h - p.y;
-  float streak = vnoise(vec2(x*120. + seed, p.y*6.));
-  vec3 col = tint*(.9 + .2*streak) + vec3(.07,.08,.12)*(1. - smoothstep(0., .007, below))*.55;
-  col = mix(col, vec3(.29,.36,.53), smoothstep(.05, .26, below)*.7);
-  float a = edge*alpha*(1. - smoothstep(.18, .34, below)*.65);
+  float edge = smoothstep(-.0022, .0022, below);
+  if (edge <= 0.) return vec4(0.);
+  float streak = vnoise(vec2(p.x*130. + tint.b*70., p.y*5.));
+  vec3 col = tint*(.86 + .28*streak);
+  float rim = 1. - smoothstep(line*.35, line, below);
+  col = mix(col, mist, smoothstep(.04, .24, below)*.75);
+  float a = edge*alpha*(1. - smoothstep(.16, .32, below)*.7);
+  col += GOLD*rim*gold*(.25 + .75*lit)/max(a, .05);
   return vec4(col*a, a);
+}
+// Billowing cloud sea whose upper edge rolls past at its own speed; tops catch the moon.
+vec4 cloudSea(vec2 p, float top, float speed, float seed, float amount){
+  if (p.y > top + .05 || p.y < top - .2) return vec4(0.);
+  float t = uTime*uMotion;
+  float n = fbm(vec2(p.x*2.1 + t*speed + seed, p.y*8. + seed));
+  float surface = top + (n - .5)*.07;
+  float inside = smoothstep(surface + .012, surface - .03, p.y)*smoothstep(top - .2, top - .07, p.y);
+  float tops = smoothstep(surface - .06, surface - .005, p.y);
+  vec3 col = mix(vec3(.27,.33,.51), vec3(.60,.68,.86), tops);
+  float a = inside*amount*(.75 + .5*n);
+  return vec4(col*a, a);
+}
+// A pagoda on the far peak with lit windows.
+vec4 pagoda(vec2 p, vec2 base, float s, vec3 tint, float t){
+  vec2 q = (p - base)/s;
+  if (abs(q.x) > .55 || q.y < -.05 || q.y > 1.25) return vec4(0.);
+  float ink = 0., win = 0.;
+  for (int i = 0; i < 5; i++) {
+    float y0 = float(i)*.2, w = .17 - float(i)*.022, ax = abs(q.x);
+    if (q.y > y0 && q.y < y0 + .14 && ax < w) { ink = 1.; if (ax < w*.32 && q.y > y0 + .035 && q.y < y0 + .105) win = 1.; }
+    float rw = w + .13, eave = y0 + .14 + .07*pow(ax/rw, 3.);
+    if (ax < rw && q.y > eave - .012 && q.y < y0 + .17 + (rw - ax)*.35) ink = 1.;
+  }
+  if (abs(q.x) < .018 && q.y > .99 && q.y < 1.22) ink = 1.;
+  float flick = .75 + .25*sin(t*3.1 + floor(q.y*5.)*1.7);
+  vec3 col = mix(tint*.5, vec3(1., .82, .45)*1.5*flick, win);
+  float a = max(ink*.9, win);
+  float halo = exp(-length(q - vec2(0., .5))*2.6)*.07;
+  return vec4(col*a + vec3(1., .72, .36)*halo*(1. - a), max(a, halo));
+}
+// A waterfall pouring from a cleft into the mist.
+vec4 waterfall(vec2 p, float x0, float top, float t){
+  float below = top - p.y, dx = p.x - x0;
+  if (below < 0. || below > .2 || abs(dx) > .03) return vec4(0.);
+  float w = .003 + below*.035;
+  float core = 1. - smoothstep(w*.35, w, abs(dx));
+  float flow = vnoise(vec2(dx*700., (p.y + t*.3)*46.));
+  float a = core*(.3 + .7*flow)*(1. - smoothstep(.1, .2, below))*.6;
+  return vec4(vec3(.72,.82,.96)*a, a);
+}
+// A crane (仙鹤) in flight, seen from the side: white body, red crown, trailing legs, beating wing.
+vec4 crane(vec2 p, vec2 c, float s, float flap){
+  vec2 q = (p - c)/s;
+  if (dot(q, q) > 2.2) return vec4(0.);
+  float d = sdSeg(q, vec2(-.3, 0.), vec2(.22, .03)) - .075;
+  d = min(d, sdSeg(q, vec2(.22, .03), vec2(.7, .12)) - .024);
+  d = min(d, sdSeg(q, vec2(-.3, 0.), vec2(-.95, -.08)) - .018);
+  vec2 elbow = vec2(-.12, .42*flap), tip = vec2(-.5, .82*flap + .05);
+  d = min(d, min(sdSeg(q, vec2(-.02, .03), elbow) - .055, sdSeg(q, elbow, tip) - .03));
+  float far = min(sdSeg(q, vec2(.02, .04), elbow + vec2(.12, -.05)) - .045, sdSeg(q, elbow + vec2(.12, -.05), tip + vec2(.2, -.08)) - .025);
+  float body = 1. - smoothstep(0., .06, d), shade = (1. - smoothstep(0., .06, far))*.55;
+  float crown = 1. - smoothstep(.025, .06, length(q - vec2(.72, .14)));
+  float a = max(max(body, shade)*.8, crown*.95);
+  vec3 col = mix(mix(vec3(.62,.68,.82), vec3(.9,.92,.98), body), vec3(.95,.25,.16), crown);
+  return vec4(col*a, a);
+}
+// 灵气 motes drifting up out of the valley.
+float motes(vec2 p, float scale, float speed, float seed, float t){
+  vec2 g = vec2(p.x*scale, (p.y - t*speed)*scale), id = floor(g), f = fract(g) - .5;
+  float h = hash12(id + seed);
+  if (h < .86) return 0.;
+  vec2 off = (vec2(hash12(id + 3.1 + seed), hash12(id + 5.7 + seed)) - .5)*.6 + vec2(sin(t*.7 + h*30.)*.12, 0.);
+  return (1. - smoothstep(0., .1, length(f - off)))*(.45 + .55*sin(t*2. + h*60.));
+}
+// A pine bough across the moon (松间明月): ink needle fans along the branch, their edges lit by the
+// moon behind them.
+vec4 bough(vec2 p, vec2 moon, float t){
+  float px = fwidth(p.x) + 1e-5, A = uAspect;
+  if (p.x < A - .8 || p.y < .68) return vec4(0.);
+  vec2 sw = vec2(sin(t*.5)*.004, sin(t*.37)*.002);
+  vec2 b0 = vec2(A + .05, 1.02), b1 = vec2(A - .12, .92) + sw*.5, b2 = vec2(A - .37, .855) + sw, b3 = vec2(A - .63, .8) + sw*1.4;
+  vec2 t1 = b1 + (b2 - b1)*.4, t1e = t1 + vec2(-.055, -.07) + sw, t2 = b2 + (b3 - b2)*.35, t2e = t2 + vec2(-.045, .055) + sw;
+  float d = min(min(sdSeg(p, b0, b1) - .008, sdSeg(p, b1, b2) - .0055), sdSeg(p, b2, b3) - .003);
+  d = min(d, min(sdSeg(p, t1, t1e) - .003, sdSeg(p, t2, t2e) - .0022));
+  float ink = 1. - smoothstep(-px, px, d), rim = 0.;
+  for (int i = 0; i < 10; i++) {
+    float k = float(i), sz;
+    vec2 c;
+    if (i < 4) { c = mix(b1, b2, .05 + k*.3); sz = .046 - k*.003; }
+    else if (i < 7) { c = mix(b2, b3, .12 + (k - 4.)*.38); sz = .04 - (k - 4.)*.005; }
+    else if (i == 7) { c = t1e; sz = .034; }
+    else if (i == 8) { c = t2e; sz = .03; }
+    else { c = mix(b0, b1, .55); sz = .044; }
+    c += sw*(1. + k*.1) + vec2(0., sz*.18);
+    // a wide, low fan of needles radiating from a point under the branch
+    vec2 q = (p - c)/vec2(sz, sz*.55), f = q - vec2(0., -.75);
+    if (q.y < -1. || dot(q, q) > 5.) continue;
+    float th = atan(f.x, f.y), rho = length(f);
+    float len = 1.65*(1. - .32*th*th) + .2*(vnoise(vec2(th*24. + k*7., k)) - .5);
+    float e = max(rho - len, (abs(th) - 1.25)*rho);
+    float aa = px/(sz*.55)*1.3;
+    float inside = 1. - smoothstep(-aa, aa, e);
+    float needles = .74 + .26*smoothstep(.3, .7, vnoise(vec2(th*40. + k*3., rho*1.6)));
+    ink = max(ink, inside*needles);
+    float edge = smoothstep(-.3, -.03, e)*(1. - smoothstep(-.03, aa, e));
+    rim = max(rim, edge*clamp(dot(normalize(p - c + 1e-5), normalize(moon - c + 1e-5)), 0., 1.)*exp(-length(moon - c)*4.));
+  }
+  float a = ink*.95;
+  return vec4(vec3(.012,.02,.05)*a + GOLD*rim*1.4, min(1., a + rim*.4));
 }
 void main(){
   vec2 uv = vUV; float t = uTime*uMotion;
   vec4 acc = vec4(0.);
-  // stars, far behind everything
-  vec2 sp = (uv + uParallax*.003)*vec2(uAspect, 1.)*70.;
-  vec2 si = floor(sp); float h = hash12(si);
+  // stars and the river of heaven, far behind everything
+  vec2 sq = layer(uv, .002);
+  vec2 sp = sq*70.; vec2 si = floor(sp); float h = hash12(si);
   float star = step(.988, h)*(1. - smoothstep(.0, .22, length(fract(sp) - .5 - (vec2(hash12(si + 1.3), hash12(si + 2.1)) - .5)*.5)));
   star *= (.55 + .45*sin(t*1.7 + h*80.))*smoothstep(.4, .85, uv.y);
   acc.rgb += vec3(.78,.84,1.)*star*.75;
-  // the moon and its halo
-  vec2 mp = vec2(.8, .8) + uParallax*.005 - vec2(0., uRise*.08);
-  vec2 dv = (uv - mp)*vec2(uAspect, 1.);
+  if (uDetail > .5 && uv.y > .45) {
+    float band = exp(-pow((sq.y - .78 + (sq.x - .9*uAspect)*.32)*6., 2.));
+    float dust = fbm(sq*vec2(4., 7.) + vec2(3., t*.01));
+    acc.rgb += vec3(.42,.48,.78)*band*smoothstep(.42, .8, dust)*.09*smoothstep(.45, .85, uv.y);
+  }
+  // the moon, its halo and faint shafts of light
+  vec2 mq = layer(uv, .004), moon = vec2(.8*uAspect, .8 - uRise*.08);
+  vec2 dv = mq - moon;
   float r = length(dv), mr = .055;
-  float disc = smoothstep(mr, mr - .003, r);
-  float rim = max(r - mr, 0.);
-  acc.rgb += vec3(.62,.52,.34)*(exp(-rim*20.)*.34 + exp(-rim*5.)*.1)*(1. - disc);
-  vec3 moon = vec3(1.,.93,.76)*(.72 + .28*fbm(dv*38. + 3.))*(.8 + .2*smoothstep(mr, 0., length(dv - vec2(-.012, .012))));
-  acc = over(vec4(moon*.66*disc, disc), acc);
-  // high clouds drifting past
-  float cl = fbm(vec2((uv.x + uParallax.x*.007)*uAspect*1.3 - t*.004, uv.y*3.2 + 1.));
-  float cloud = smoothstep(.58, .86, cl)*smoothstep(.5, .95, uv.y)*.2;
-  acc = over(vec4(vec3(.3,.35,.5)*cloud, cloud), acc);
-  // three ranges, far to near; mist lies between them
-  acc = over(range(uv, .010, .5, .28, 1.25, 11., vec3(.13,.19,.33), .5), acc);
-  float mist1 = fbm(vec2((uv.x + uParallax.x*.016)*uAspect*1.6 + t*.012, uv.y*7. - t*.02));
-  float m1 = smoothstep(.44, .3, uv.y)*smoothstep(.18, .32, uv.y)*mist1*.16;
-  acc = over(vec4(vec3(.42,.5,.68)*m1, m1), acc);
-  acc = over(range(uv, .022, .39, .22, 1.9, 29., vec3(.095,.135,.26), .58), acc);
-  float mist2 = fbm(vec2((uv.x + uParallax.x*.03)*uAspect*2. - t*.016, uv.y*8. + t*.015));
-  float m2 = smoothstep(.3, .16, uv.y)*smoothstep(.04, .18, uv.y)*mist2*.14;
-  acc = over(vec4(vec3(.36,.44,.62)*m2, m2), acc);
-  acc = over(range(uv, .042, .26, .16, 2.8, 47., vec3(.06,.09,.18), .52), acc);
+  float disc = smoothstep(mr, mr - .003, r), rim = max(r - mr, 0.);
+  float shafts = pow(vnoise(vec2(atan(dv.y, dv.x)*7., t*.04)), 3.)*exp(-rim*4.)*.055;
+  acc.rgb += vec3(.62,.52,.34)*(exp(-rim*20.)*.34 + exp(-rim*5.)*.1 + shafts)*(1. - disc);
+  vec3 mcol = vec3(1.,.93,.76)*(.72 + .28*fbm(dv*38. + 3.))*(.8 + .2*smoothstep(mr, 0., length(dv - vec2(-.012, .012))));
+  acc = over(vec4(mcol*.66*disc, disc), acc);
+  // high clouds drifting past the moon
+  if (uv.y > .5) {
+    vec2 cq = layer(uv, .007);
+    float cl = fbm(vec2(cq.x*1.3 - t*.006, cq.y*3.2 + 1.));
+    float cloud = smoothstep(.56, .86, cl)*smoothstep(.5, .95, uv.y)*.24;
+    acc = over(vec4(vec3(.3,.35,.5)*cloud, cloud), acc);
+  }
+  // Five ranges from far to near, cloud seas and mist between them. Far ones are pale and hazy
+  // and barely move; near ones are dark, crisp, gold-edged and slide much further.
+  vec2 p1 = layer(uv, .008); float h1 = ridge(p1.x, .57, .3, 1.15, 11.);
+  vec2 p2 = layer(uv, .016); float h2 = ridge(p2.x, .47, .22, 1.7, 29.) + .07*exp(-pow((p2.x - .36*uAspect)/.1, 2.));
+  vec2 p3 = layer(uv, .03); float h3 = ridge(p3.x, .38, .19, 2.3, 47.);
+  vec2 p4 = layer(uv, .05); float h4 = ridge(p4.x, .29, .14, 3.1, 61.);
+  vec2 p5 = layer(uv, .078); float h5 = ridge(p5.x, .2, .1, 4.2, 83.);
+  float l1 = clamp(.5 - dFdx(h1)/dFdx(p1.x)*.8, 0., 1.), l2 = clamp(.5 - dFdx(h2)/dFdx(p2.x)*.8, 0., 1.), l3 = clamp(.5 - dFdx(h3)/dFdx(p3.x)*.8, 0., 1.);
+  float l4 = clamp(.5 - dFdx(h4)/dFdx(p4.x)*.8, 0., 1.), l5 = clamp(.5 - dFdx(h5)/dFdx(p5.x)*.8, 0., 1.);
+  acc = over(inkRange(p1, h1, l1, vec3(.22,.29,.48), .42, .09, .002, vec3(.33,.4,.58)), acc);
+  if (uDetail > .5) {
+    // cranes cross the sky between the far ranges
+    vec2 kq = layer(uv, .013);
+    for (int i = 0; i < 3; i++) {
+      float k = float(i), span = uAspect + .5;
+      vec2 c = vec2(mod(t*(.016 + k*.003) + k*.61, span) - .25, .66 + k*.035 + .012*sin(t*.4 + k*2.));
+      acc = over(crane(kq, c, .03 - k*.004, sin(t*4.2 + k*2.3)), acc);
+    }
+  }
+  acc = over(cloudSea(layer(uv, .012), .5, .008, 3., .34), acc);
+  acc = over(inkRange(p2, h2, l2, vec3(.16,.22,.4), .52, .14, .0024, vec3(.31,.38,.56)), acc);
+  if (abs(p2.x - .36*uAspect) < .045) {
+    vec2 pb = vec2(.36*uAspect, ridge(.36*uAspect, .47, .22, 1.7, 29.) + .07 - .004);
+    acc = over(pagoda(p2, pb, .07, vec3(.13,.18,.33), t), acc);
+  }
+  acc = over(cloudSea(layer(uv, .022), .41, .014, 17., .38), acc);
+  acc = over(inkRange(p3, h3, l3, vec3(.1,.18,.3), .62, .22, .003, vec3(.3,.38,.55)), acc);
+  float wx = .64*uAspect;
+  if (abs(p3.x - wx) < .03) acc = over(waterfall(p3, wx, ridge(wx, .38, .19, 2.3, 47.) - .012, t), acc);
+  if (uv.y > .07 && uv.y < .3) {
+    vec2 m3q = layer(uv, .04);
+    float mist3 = fbm(vec2(m3q.x*1.8 + t*.02, m3q.y*7. - t*.02));
+    float m3 = smoothstep(.3, .19, uv.y)*smoothstep(.07, .19, uv.y)*mist3*.18;
+    acc = over(vec4(vec3(.38,.46,.64)*m3, m3), acc);
+  }
+  acc = over(inkRange(p4, h4, l4, vec3(.07,.11,.23), .72, .3, .0036, vec3(.27,.34,.52)), acc);
+  if (uv.y < .22) {
+    vec2 m4q = layer(uv, .062);
+    float mist4 = fbm(vec2(m4q.x*2.2 - t*.03, m4q.y*8. + t*.02));
+    float m4 = smoothstep(.22, .12, uv.y)*smoothstep(.0, .12, uv.y)*mist4*.16;
+    acc = over(vec4(vec3(.34,.42,.6)*m4, m4), acc);
+  }
+  // the nearest hills, with ink pines along the ridge
+  vec4 near = inkRange(p5, h5, l5, vec3(.03,.05,.12), .9, .42, .005, vec3(.2,.26,.42));
+  float cell = floor(p5.x*9.), seed = hash12(vec2(cell, 7.));
+  if (seed > .35 && p5.y < h5 + .08 && p5.y > h5 - .05) {
+    float xc = (cell + .35 + .3*hash12(vec2(cell, 3.)))/9., th = .045 + .025*hash12(vec2(cell, 9.));
+    float base = ridge(xc, .2, .1, 4.2, 83.) - .004;
+    vec2 q = vec2(p5.x - xc, p5.y - base);
+    float pine = (abs(q.x) < .0022 && q.y > 0. && q.y < th) ? 1. : 0.;
+    for (int k = 0; k < 4; k++) {
+      float fk = float(k), cy = th*(.38 + fk*.2), w = th*(.5 - fk*.1), hgt = th*.1;
+      vec2 e = vec2(q.x/w, (q.y - cy)/hgt);
+      float fr = vnoise(vec2(q.x*260. + cell*7., fk*3.))*.35;
+      if (length(e) < 1. - fr && e.y > -.9) pine = 1.;
+    }
+    if (pine > 0.) { vec3 pc = vec3(.025,.04,.1); near = over(vec4(pc*.92, .92), near); }
+  }
+  acc = over(near, acc);
+  // 灵气 rising from the valley at two depths
+  if (uDetail > .5) { vec2 fq = layer(uv, .035); acc.rgb += GOLD*motes(fq, 38., .012, 1.7, t)*.5*smoothstep(.62, .12, uv.y); }
+  vec2 nq = layer(uv, .09); acc.rgb += GOLD*motes(nq, 19., .022, 5.3, t)*.75*smoothstep(.7, .1, uv.y);
+  // a pine bough in front of the moon, nearest of all
+  // (the moon's place on screen, carried into the bough's layer so its rim light follows the moon)
+  vec2 ms = vec2(.8 - uParallax.x*.004, .8 - uRise*.08 - uParallax.y*.002 - uRise*.036);
+  if (uDetail > .5) acc = over(bough(layer(uv, .11), layer(ms, .11), t), acc);
   o = acc;
 }`;
 
@@ -1188,6 +1358,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       bind(back); blend(false);
       u = use(prog.backdrop); common(u);
       gl.uniform2f(u.uParallax, parallax.x, parallax.y); gl.uniform1f(u.uRise, stage?.rise ?? 0); gl.uniform1f(u.uAspect, canvas.width / canvas.height);
+      if (u.uDetail) gl.uniform1f(u.uDetail, mobile ? 0 : 1);
       fullscreen();
     }
     // fluid field

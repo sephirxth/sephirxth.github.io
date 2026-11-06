@@ -78,7 +78,7 @@ const hints = {
   [K.STEAM]: '汽会上升，在高处遇冷后凝成水。',
   [K.LIGHTNING]: '雷短暂放热，电荷沿相邻的金、水、冰传递。',
   [K.EMPTY]: '拖动擦除材料，不消耗灵力。',
-  [FORMATION]: '法阵：按住右键唤阵，左键连锚点画符（上·右下·左下为火，四角为土，沿阵边一段弧为风，绕阵一圈为收），可叠两符；松开右键选方向，左键释放。没有右键时点画布唤阵，从阵心向外一划释放。',
+  [FORMATION]: '法阵：按住右键唤阵，左键连锚点画符（上·右下·左下为火，四角为土，沿阵边一段弧为风，绕阵一圈为收），可叠两符；画好后鼠标指向目标，松开右键就放出去，没画成符就松开，法阵自己散了。没有右键时点画布唤阵，从阵心向外一划释放。',
 };
 const reactions = { ignite: '木起火了', boil: '水受热，化成汽', condense: '汽遇冷，凝成水', freeze: '水结成冰', thaw: '冰融成水', melt: '金受热熔化', solidify: '熔金冷却凝固', extinguish: '水把火熄灭了', lightning: '雷落下，电荷沿导体传递' };
 function status(text, duration = 1500) {
@@ -364,16 +364,28 @@ function announce(glyph, at, col, scale) {
 const toCircle = p => ({ x: (p.x - circle.center.x) / circle.R, y: (p.y - circle.center.y) / circle.R });
 function summonCircle(viaRight) {
   const R = Math.max(3.5, Math.min(8, Math.min(world.width, world.height) * .22));
-  circle = { center: { x: player.x + .5, y: player.y + .5 }, R, born: presentTime, runes: [], stroke: null, touched: [], lit: new Map(), phase: 'draw', rightHeld: viaRight, aim: null, flashAt: -9, failAt: -9, snap: null, broken: false };
+  circle = { center: { x: player.x + .5, y: player.y + .5 }, R, born: presentTime, runes: [], stroke: null, strokes: [], touched: [], lit: new Map(), phase: 'draw', rightHeld: viaRight, aim: null, lastAim: null, flashAt: -9, failAt: -9, snap: null, broken: false };
   effects.fx?.flash(.12);
   sound('reset', { x: circle.center.x, intensity: .8 });
-  status(viaRight ? '法阵已开：左键连锚点画符，松开右键选方向' : '法阵已开：在阵中画符，画好后从阵心向外一划释放', 2200);
+  status(viaRight ? '法阵已开：左键连锚点画符，指向目标后松开右键' : '法阵已开：在阵中画符，画好后从阵心向外一划释放', 2200);
   guide.hear('summon');
   wake();
+}
+// Thin a stroke to points about `step` cells apart, for drawing.
+function thin(pts, step = .3) {
+  const out = [pts[0]];
+  for (const q of pts) { const l = out.at(-1); if (Math.hypot(q.x - l.x, q.y - l.y) >= step) out.push(q); }
+  if (out.at(-1) !== pts.at(-1)) out.push(pts.at(-1));
+  return out;
+}
+function fadeStrokes(c) {
+  const fx = effects.fx; if (!fx?.sigil) return;
+  for (const st of c.strokes) if (st.ok && st.pts.length > 1) fx.sigil(thin(st.pts, .4), { width: .07, col: [1, .86, .5], life: .8 });
 }
 function dismissCircle(text) {
   if (!circle) return;
   const c = circle; circle = null;
+  fadeStrokes(c);
   if (text) note(text, 2500);
   if (effects.fx) for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; effects.fx.add(effects.fx.glint(c.center.x + Math.cos(a) * c.R, c.center.y + Math.sin(a) * c.R, [1, .8, .45], .16)); }
   wake();
@@ -401,7 +413,6 @@ function extendStroke(p) {
   }
   simulation.spirit -= ink; spentUntil = performance.now() + 120;
   s.push(p);
-  effects.fx?.trail(last.x, last.y, p.x, p.y, K.GOLD, .13, .9);
   const a = anchorAt(toCircle(p)); if (a >= 0) touchAnchor(a);
   // Without the right button, a flick from the centre out past the ring releases the spell.
   if (!circle.rightHeld && circle.runes.length) {
@@ -412,10 +423,14 @@ function extendStroke(p) {
 }
 function finishStroke() {
   const s = circle.stroke; circle.stroke = null;
-  if (!s || circle.broken || s.length < 3) return;
+  if (!s) return;
+  // Every stroke stays on the circle; one that does not read as a rune turns red and fades.
+  const keep = ok => circle.strokes.push({ pts: thin(s, .2), at: presentTime, ok });
+  if (circle.broken || s.length < 3) { if (s.length > 1) keep(false); return; }
   const closed = Math.hypot(s[0].x - s.at(-1).x, s[0].y - s.at(-1).y) < circle.R * .35;
   const rune = readRune(circle.touched, closed), fx = effects.fx;
   if (!rune) {
+    keep(false);
     circle.failAt = presentTime;
     status('符形不成', 1200);
     if (fx) for (let i = 0; i < 12; i++) { const q = s[Math.floor(Math.random() * s.length)]; fx.add(fx.spark(q.x, q.y, [1, .35, .25], .5)); }
@@ -423,8 +438,10 @@ function finishStroke() {
     return;
   }
   if (circle.runes.length >= 2 || (rune === 'capture') !== circle.runes.includes('capture') && circle.runes.length) {
+    keep(false);
     circle.failAt = presentTime; status('一个法阵最多叠两个符；收要单独画', 1600); sound('dry', { x: circle.center.x }); return;
   }
+  keep(true);
   circle.runes.push(rune); circle.flashAt = presentTime;
   circle.shapes = [...(circle.shapes || []), { rune, pts: idealOutline(rune, circle.touched), at: presentTime }];
   guide.hear('rune', rune);
@@ -433,22 +450,24 @@ function finishStroke() {
   fx?.flash(.12);
   if (fx) for (let i = 0; i < 14; i++) { const q = s[Math.floor(Math.random() * s.length)]; fx.add(fx.glint(q.x, q.y, [1, .88, .55], .16)); }
   sound('solidify', { x: circle.center.x, intensity: 1 + circle.runes.length * .3 });
-  const how = circle.rightHeld ? '松开右键选方向，左键释放。' : '从阵心向外一划释放。';
+  const how = circle.rightHeld ? '鼠标指向要打的方向，松开右键释放。' : '从阵心向外一划释放。';
   status(combo ? `成阵：${combo.name}` : `${runeName[rune]}符成`, 1500);
   note(combo ? `${circle.runes.map(r => runeName[r]).join('＋')}成阵：${combo.name}，${combo.text}。${how}` : `${runeName[rune]}符成。${rune === 'capture' ? '“收”打中哪片材料，就收走哪片。' : '可以再叠一个符成阵。'}${how}`, 4000);
 }
+// The circle lives only while the right button is held. Letting go casts what is on it toward
+// the pointer; with nothing drawn, the circle simply fades.
+const aimOf = c => (c.aim && Math.hypot(c.aim.x, c.aim.y) > c.R * .3 ? c.aim : c.lastAim) || { x: player.dx || 1, y: 0 };
 function rightReleased() {
   if (!circle || !circle.rightHeld) return;
   circle.rightHeld = false;
   if (circle.stroke) finishStroke();
-  if (!circle.runes.length) { dismissCircle('阵中没有成形的符，法阵散了。'); return; }
-  circle.phase = 'aim';
-  status('选方向，左键释放；右键或 Esc 取消', 2500);
-  wake();
+  if (!circle.runes.length) { dismissCircle(); status('法阵散了', 900); return; }
+  releaseCircle(aimOf(circle));
 }
 function releaseCircle(dir) {
   const c = circle; circle = null;
   if (!c || !c.runes.length) return;
+  fadeStrokes(c);
   const key = keyOf(c.runes), len = Math.hypot(dir.x, dir.y) || 1;
   const elements = c.runes.filter(r => r !== 'capture').map(r => RUNES[r].element);
   const aff = elements.length ? elements.reduce((s, e) => s + affinity(e, socketKinds()), 0) / elements.length : 1;
@@ -487,7 +506,7 @@ function capture(got, at) {
 // The circle, drawn over the world each frame.
 function circleOverlay() {
   const c = circle, t = presentTime, fx = effects.fx, grow = Math.min(1, (t - c.born) / .22), R = c.R * (.4 + .6 * grow);
-  const ribbons = [], marks = [], actors = [], lights = [], gold = [1, .84, .45], aiming = c.phase === 'aim';
+  const ribbons = [], marks = [], actors = [], lights = [], gold = [1, .84, .45], aiming = c.rightHeld && c.runes.length > 0 && !c.stroke;
   const ring = (r, n = 64) => Array.from({ length: n + 1 }, (_, i) => ({ x: c.center.x + Math.cos(i / n * Math.PI * 2) * r, y: c.center.y + Math.sin(i / n * Math.PI * 2) * r }));
   const pulse = .75 + .25 * Math.sin(t * 5);
   ribbons.push({ pts: ring(R), width: .07, col: gold, a: .75 * grow * pulse });
@@ -518,6 +537,15 @@ function circleOverlay() {
     const n = ANCHORS[next];
     marks.push({ type: fx.kinds.ring, layer: 'add', x: c.center.x + n.x * R, y: c.center.y + n.y * R, s: .55 + .22 * Math.sin(t * 8), col: [1, .95, .7], a: .95 * grow });
   }
+  // What the hand drew stays on the circle in clear gold until it goes: the stroke under the pen
+  // brightest, finished runes a little dimmer, strokes that did not read fading out in red.
+  const ink = (pts, a, col) => { if (pts.length < 2 || a <= .01) return; ribbons.push({ pts, width: .22, col, a: .3 * a }); ribbons.push({ pts, width: .06, col: [1, .96, .84], a: .95 * a }); };
+  for (const st of c.strokes) ink(st.pts, (st.ok ? Math.max(.6, 1 - (t - st.at) * .5) : Math.max(0, 1 - (t - st.at) / 1.6)) * grow, st.ok ? gold : [1, .36, .26]);
+  if (c.stroke) {
+    ink(thin(c.stroke, .2), grow, [1, .88, .52]);
+    const tip = c.stroke.at(-1);
+    marks.push({ type: fx.kinds.star, layer: 'add', x: tip.x, y: tip.y, s: .42, col: [1, .97, .85], a: .95 });
+  }
   if (c.snap && t - c.snap.at < .6) ribbons.push({ pts: c.snap.pts.map(q => ({ x: c.center.x + q.x * R, y: c.center.y + q.y * R })), width: .1, col: [1, .95, .75], a: 1 - (t - c.snap.at) / .6 });
   // Runes already drawn stay on the circle, glowing in their element's colour, until released.
   const runeColor = { fire: [1, .5, .22], wind: [.7, .9, 1], earth: [.95, .72, .42], capture: [1, .9, .6] };
@@ -536,8 +564,8 @@ function circleOverlay() {
   const combo = c.runes.length === 2 ? COMBOS[keyOf(c.runes)] : null;
   if (combo) actors.push({ k: K.GOLD, g: GLYPH_INDEX[combo.glyph], flags: 8, x: c.center.x, y: c.center.y - .3 * R, s: 1.35, a: 1, bt: Math.min(1, (t - c.flashAt) / .3), seed: .9 });
   if (t - c.failAt < .4) ribbons.push({ pts: ring(R * 1.02), width: .08, col: [1, .3, .25], a: 1 - (t - c.failAt) / .4 });
-  if (aiming && c.aim) {
-    const len = Math.hypot(c.aim.x, c.aim.y) || 1, ux = c.aim.x / len, uy = c.aim.y / len, tip = { x: c.center.x + ux * R * 1.7, y: c.center.y + uy * R * 1.7 };
+  if (aiming) {
+    const aim = aimOf(c), len = Math.hypot(aim.x, aim.y) || 1, ux = aim.x / len, uy = aim.y / len, tip = { x: c.center.x + ux * R * 1.7, y: c.center.y + uy * R * 1.7 };
     ribbons.push({ pts: [{ x: c.center.x + ux * R * .25, y: c.center.y + uy * R * .25 }, tip], width: .09, col: [1, .9, .6], a: .9 });
     for (const side of [-1, 1]) ribbons.push({ pts: [tip, { x: tip.x - ux * .9 - uy * .55 * side, y: tip.y - uy * .9 + ux * .55 * side }], width: .08, col: [1, .9, .6], a: .9 });
   }
@@ -567,7 +595,7 @@ const guide = (() => {
     { text: '写字：在下方选一个字，比如<b>水</b>，在天地里按住左键拖动。每写一格耗 1 点灵力。', touch: '写字：在下方选一个字，比如<b>水</b>，用手指在天地里拖动。每写一格耗 1 点灵力。', ui: '#materials', hear: (e, d) => e === 'write' && (written += d) >= 6 },
     { text: '唤阵：把鼠标移到红色的<b>我</b>附近，<b>按住右键</b>，法阵会在“我”身边亮起。', touch: '唤阵：在下方选<b>符</b>，再点一下画布，“我”身边会亮起法阵。', ui: touch ? '.material[data-kind="99"]' : null, me: true, hear: e => e === 'summon' },
     { text: '画火符：右键别松，用<b>左键</b>依次连<b>上、右下、左下</b>三个锚点，再回到上面。跟着闪烁的锚点画。', touch: '画火符：在阵里依次连<b>上、右下、左下</b>三个锚点，再回到上面。跟着闪烁的锚点画。', ghost: () => 'fire', hear: (e, d) => e === 'rune' && d === 'fire' },
-    { text: '释放：<b>松开右键</b>，阵心伸出一支箭头。把鼠标指向远处，<b>左键点一下</b>，火符就飞出去。', touch: '释放：从阵心<b>往外划一笔</b>，火符就朝那边飞出去。', hear: e => e === 'release' },
+    { text: '释放：右键别松，阵心伸出一支箭头，跟着鼠标转。把鼠标<b>指向远处</b>，<b>松开右键</b>，火符就飞出去。', touch: '释放：从阵心<b>往外划一笔</b>，火符就朝那边飞出去。', hear: e => e === 'release' },
     { text: '叠阵：再唤阵，先画火符，再沿阵边从<b>左经上到右</b>画一道弧（风）。两个符叠成<b>火龙卷</b>，释放看看。', touch: '叠阵：再唤阵，先画火符，再沿阵边从<b>左经上到右</b>画一道弧（风）。两个符叠成<b>火龙卷</b>，往外一划释放。', ghost: c => c?.runes.length ? 'wind' : 'fire', hear: (e, d) => e === 'release' && d.count === 2 },
     { text: '收字：唤阵，沿阵边<b>绕一整圈</b>画“收”，打向一片湖水、树林或山。收到的字会进下方的<b>字囊</b>。', touch: '收字：唤阵，沿阵边<b>绕一整圈</b>画“收”，再往外一划，打向一片湖水、树林或山。收到的字会进下方的<b>字囊</b>。', ghost: () => 'capture', ui: '#satchel', hear: e => e === 'capture' },
     { text: '内观：鼠标对着<b>我</b>一直<b>向前滚动滚轮</b>。越往里阻力越大，一停就弹回，推破就进去了。也可以点上方的<b>内观</b>。', touch: '内观：点上方的<b>内观</b>，推进“我”的体内。', ui: '#inner-toggle', me: true, hear: e => e === 'inner' },
@@ -824,7 +852,8 @@ canvas.addEventListener('pointerdown', event => {
   const pf = pointF(event);
   if (circle) {
     event.preventDefault();
-    if (circle.phase === 'aim') { if (event.button === 0) releaseCircle(circle.aim || { x: 1, y: 0 }); else if (event.button === 2) dismissCircle('收起法阵。'); return; }
+    // A circle opened by tapping (the 符 tool) can be taken up by the right button.
+    if (event.button === 2 && !circle.rightHeld) { circle.rightHeld = true; canvas.setPointerCapture?.(event.pointerId); return; }
     if (event.button === 0) {
       if (!circle.rightHeld && Math.hypot(pf.x - circle.center.x, pf.y - circle.center.y) > circle.R * 1.5) { dismissCircle('收起法阵。'); return; }
       startStroke(pf); canvas.setPointerCapture?.(event.pointerId);
@@ -844,9 +873,10 @@ canvas.addEventListener('pointermove', event => {
   if (mode === 'inner') { innerHover(event); return; }
   if (circle) {
     const pf = pointF(event), mouse = event.pointerType === 'mouse';
+    circle.aim = { x: pf.x - circle.center.x, y: pf.y - circle.center.y };
+    if (Math.hypot(circle.aim.x, circle.aim.y) > circle.R * .3) circle.lastAim = circle.aim;
     if (mouse && circle.rightHeld && !(event.buttons & 2)) rightReleased();
     if (!circle) return;
-    if (circle.phase === 'aim') { circle.aim = { x: pf.x - circle.center.x, y: pf.y - circle.center.y }; wake(); return; }
     const left = mouse ? (event.buttons & 1) !== 0 : event.buttons !== 0;
     if (left && !circle.stroke) startStroke(pf);
     else if (left) extendStroke(pf);
@@ -861,6 +891,7 @@ canvas.addEventListener('pointermove', event => {
 function releasePointer(event) {
   if (circle) {
     if (event.type === 'lostpointercapture') return;
+    if (circle.rightHeld) { const pf = pointF(event); circle.aim = { x: pf.x - circle.center.x, y: pf.y - circle.center.y }; }
     if (circle.stroke) finishStroke();
     if (circle.rightHeld && (event.pointerType !== 'mouse' || !(event.buttons & 2))) rightReleased();
     wake(); return;
