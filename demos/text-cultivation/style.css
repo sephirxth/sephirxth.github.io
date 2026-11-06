@@ -265,3 +265,21 @@ body.game main.stage{max-width:none;margin:0;padding:0;height:100%;position:rela
   .stage .tray{flex-direction:column;gap:6px;overflow:visible}
   .stage .materials{flex-wrap:wrap;justify-content:center}
 }
+
+/* 新手引导: a card under the top HUD; targets pulse in gold. */
+.guide{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--hud-top,64px) + 8px);z-index:6;width:min(560px,calc(100vw - 24px));background:#0a1229eb;border:1px solid #c9a557;border-radius:8px;padding:10px 16px 12px;color:#f3e3bb;box-shadow:0 0 0 1px #c9a55733,0 18px 40px -16px #000,0 0 32px -12px #c9a557}
+.guide[hidden]{display:none}
+.guide-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.guide-step{font-size:11px;color:#c9a557;letter-spacing:.12em}
+.guide-skip,.guide-done,.guide-restart{min-height:28px;padding:3px 10px;font-size:12px;color:#efe3c4;background:#14203f;border:1px solid #3a4a72;border-radius:4px}
+.guide-skip:hover,.guide-done:hover{border-color:#c9a557;background:#1c2c55}
+.guide-done{margin-top:2px;background:#c9a557;color:#0b1430;border-color:#c9a557}
+.guide-text{margin:6px 0 2px;font-size:15px;line-height:1.75}
+.guide-text b{color:#ffe7a6;font-weight:600}
+.guide.flash{animation:guide-flash .7s ease-out}
+@keyframes guide-flash{0%{box-shadow:0 0 0 2px #ffe9a8,0 0 46px 8px #e6c06a}100%{box-shadow:0 0 0 1px #c9a55733,0 18px 40px -16px #000,0 0 32px -12px #c9a557}}
+.guide-target{outline:2px solid #e6c06a;outline-offset:3px;animation:guide-pulse 1.1s ease-in-out infinite}
+@keyframes guide-pulse{50%{outline-color:#fff3d6;box-shadow:0 0 18px 3px #e6c06a88}}
+.guide-restart{position:absolute;top:14px;right:74px;color:var(--ink);background:transparent;border-color:var(--line)}
+@media(prefers-reduced-motion:reduce){.guide-target,.guide.flash{animation:none}}
+@media(max-width:760px){.guide-text{font-size:14px}.guide{padding:8px 12px 10px}.guide-restart{position:static;margin:0 0 10px}}

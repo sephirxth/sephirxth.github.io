@@ -68,6 +68,60 @@ void main(){
   o = vec4(c, fleck);
 }`;
 
+const BACKDROP_FS = HEAD + `in vec2 vUV; out vec4 o;
+uniform vec2 uParallax; uniform float uTime, uRise, uAspect, uMotion;
+${NOISE}
+vec4 over(vec4 top, vec4 under){ return vec4(top.rgb + under.rgb*(1. - top.a), top.a + under.a*(1. - top.a)); }
+float ridged(vec2 p){ float s = 0., a = .5; for (int i = 0; i < 4; i++){ float n = 1. - abs(vnoise(p)*2. - 1.); s += a*n*n; p = p*2.07 + vec2(13.1, 7.7); a *= .5; } return s/.9375; }
+// One ink-wash range: sharp ridged peaks, a faint moonlit rim, the body dissolving into mist below.
+vec4 range(vec2 uv, float depth, float base, float amp, float freq, float seed, vec3 tint, float alpha){
+  vec2 p = uv + vec2(uParallax.x*depth, uParallax.y*depth*.5 - uRise*depth*9.);
+  float x = p.x*uAspect;
+  float h = base + amp*(ridged(vec2(x*freq + seed, seed*1.7)) - .45);
+  float edge = smoothstep(h + .0025, h - .0025, p.y);
+  if (edge <= 0.) return vec4(0.);
+  float below = h - p.y;
+  float streak = vnoise(vec2(x*120. + seed, p.y*6.));
+  vec3 col = tint*(.9 + .2*streak) + vec3(.07,.08,.12)*(1. - smoothstep(0., .007, below))*.55;
+  col = mix(col, vec3(.29,.36,.53), smoothstep(.05, .26, below)*.7);
+  float a = edge*alpha*(1. - smoothstep(.18, .34, below)*.65);
+  return vec4(col*a, a);
+}
+void main(){
+  vec2 uv = vUV; float t = uTime*uMotion;
+  vec4 acc = vec4(0.);
+  // stars, far behind everything
+  vec2 sp = (uv + uParallax*.003)*vec2(uAspect, 1.)*70.;
+  vec2 si = floor(sp); float h = hash12(si);
+  float star = step(.988, h)*(1. - smoothstep(.0, .22, length(fract(sp) - .5 - (vec2(hash12(si + 1.3), hash12(si + 2.1)) - .5)*.5)));
+  star *= (.55 + .45*sin(t*1.7 + h*80.))*smoothstep(.4, .85, uv.y);
+  acc.rgb += vec3(.78,.84,1.)*star*.75;
+  // the moon and its halo
+  vec2 mp = vec2(.8, .8) + uParallax*.005 - vec2(0., uRise*.08);
+  vec2 dv = (uv - mp)*vec2(uAspect, 1.);
+  float r = length(dv), mr = .055;
+  float disc = smoothstep(mr, mr - .003, r);
+  float rim = max(r - mr, 0.);
+  acc.rgb += vec3(.62,.52,.34)*(exp(-rim*20.)*.34 + exp(-rim*5.)*.1)*(1. - disc);
+  vec3 moon = vec3(1.,.93,.76)*(.72 + .28*fbm(dv*38. + 3.))*(.8 + .2*smoothstep(mr, 0., length(dv - vec2(-.012, .012))));
+  acc = over(vec4(moon*.66*disc, disc), acc);
+  // high clouds drifting past
+  float cl = fbm(vec2((uv.x + uParallax.x*.007)*uAspect*1.3 - t*.004, uv.y*3.2 + 1.));
+  float cloud = smoothstep(.58, .86, cl)*smoothstep(.5, .95, uv.y)*.2;
+  acc = over(vec4(vec3(.3,.35,.5)*cloud, cloud), acc);
+  // three ranges, far to near; mist lies between them
+  acc = over(range(uv, .010, .5, .28, 1.25, 11., vec3(.13,.19,.33), .5), acc);
+  float mist1 = fbm(vec2((uv.x + uParallax.x*.016)*uAspect*1.6 + t*.012, uv.y*7. - t*.02));
+  float m1 = smoothstep(.44, .3, uv.y)*smoothstep(.18, .32, uv.y)*mist1*.16;
+  acc = over(vec4(vec3(.42,.5,.68)*m1, m1), acc);
+  acc = over(range(uv, .022, .39, .22, 1.9, 29., vec3(.095,.135,.26), .58), acc);
+  float mist2 = fbm(vec2((uv.x + uParallax.x*.03)*uAspect*2. - t*.016, uv.y*8. + t*.015));
+  float m2 = smoothstep(.3, .16, uv.y)*smoothstep(.04, .18, uv.y)*mist2*.14;
+  acc = over(vec4(vec3(.36,.44,.62)*m2, m2), acc);
+  acc = over(range(uv, .042, .26, .16, 2.8, 47., vec3(.06,.09,.18), .52), acc);
+  o = acc;
+}`;
+
 const COPY_FLIP_FS = HEAD + `in vec2 vUV; out vec4 o; uniform sampler2D uTex;
 void main(){ o = texture(uTex, vec2(vUV.x, 1. - vUV.y)); }`;
 const BLUR_FS = HEAD + `in vec2 vUV; out vec4 o; uniform sampler2D uTex; uniform vec2 uDir;
@@ -94,10 +148,12 @@ void main(){
 }`;
 
 const SCENE_BG_FS = HEAD + `in vec2 vUV; out vec4 o;
-uniform sampler2D uPaper, uFluid, uLight; uniform vec2 uCellUV, uRes; uniform float uTime, uFlash, uMotion, uStorm, uDark;
+uniform sampler2D uPaper, uFluid, uLight, uBack; uniform vec2 uCellUV, uRes; uniform float uTime, uFlash, uMotion, uStorm, uDark, uBackdrop;
 ${NOISE}
 void main(){
   vec4 paper = texture(uPaper, vUV);
+  vec4 back = texture(uBack, vUV)*uBackdrop;
+  paper.rgb = paper.rgb*(1. - back.a) + back.rgb;
   vec3 L = texture(uLight, vUV).rgb;
   vec3 c = paper.rgb * (1. - uDark*.5) * (1. + uFlash*1.7) + paper.rgb * L * 6.5 + L * L * .7 + L * .3;
   float tw = .7 + .3*sin(uTime*2.3*uMotion + hash12(floor(vUV*uRes/3.))*40.);
@@ -584,7 +640,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   };
 
   const prog = {
-    paper: program(FULL_VS, PAPER_FS), copyFlip: program(FULL_VS, COPY_FLIP_FS), blur: program(FULL_VS, BLUR_FS),
+    paper: program(FULL_VS, PAPER_FS), backdrop: program(FULL_VS, BACKDROP_FS), copyFlip: program(FULL_VS, COPY_FLIP_FS), blur: program(FULL_VS, BLUR_FS),
     fluid: program(FLUID_VS, FLUID_FS), bg: program(FULL_VS, SCENE_BG_FS), glyph: program(GLYPH_VS, GLYPH_FS),
     fire: program(FULL_VS, FIRE_FS), part: program(PART_VS, PART_FS), ribbon: program(RIBBON_VS, RIBBON_FS),
     box: program(BOX_VS, BOX_FS), fluidGlow: program(FULL_VS, FLUID_GLOW_FS), down: program(FULL_VS, DOWN_FS),
@@ -603,7 +659,8 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
   const cellTex = texture(W, H, gl.LINEAR), fireTex = texture(W, H, gl.LINEAR);
   let fireCount = 0;
   const light = [target(W * 4, H * 4), target(W * 4, H * 4)];
-  let atlasTex = null, paperTex = null, scene = null, emis = null, fluid = null, bloom = [];
+  let atlasTex = null, paperTex = null, scene = null, emis = null, fluid = null, back = null, bloom = [];
+  const parallax = { x: 0, y: 0, tx: 0, ty: 0, inputAt: -99 };
 
   // ---------- atlas: glyphs as signed distance fields ----------
   function buildAtlas() {
@@ -659,8 +716,8 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     const cw = canvas.width, ch = canvas.height, key = `${cw}x${ch}`;
     if (key === sizeKey) return;
     sizeKey = key;
-    [scene, emis, fluid, ...bloom].forEach(free);
-    scene = target(cw, ch); emis = target(cw / 2, ch / 2); fluid = target(cw / 2, ch / 2);
+    [scene, emis, fluid, back, ...bloom].forEach(free);
+    scene = target(cw, ch); emis = target(cw / 2, ch / 2); fluid = target(cw / 2, ch / 2); back = target(cw / 2, ch / 2);
     bloom = [target(cw / 4, ch / 4), target(cw / 8, ch / 8), target(cw / 16, ch / 16)];
     paperKey = '';
   }
@@ -834,6 +891,11 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     }
     personMoving = Math.abs(player.x - person.x) + Math.abs(player.y - person.y) > .003;
     flash *= Math.exp(-dt * 6.5); if (flash < .004) flash = 0;
+    if (motion) {
+      if (clock - parallax.inputAt > 4) { parallax.tx = Math.sin(clock * .07) * .5; parallax.ty = Math.cos(clock * .05) * .3; }
+      const ease = 1 - Math.exp(-dt * 2.5);
+      parallax.x += (parallax.tx - parallax.x) * ease; parallax.y += (parallax.ty - parallax.y) * ease;
+    } else { parallax.x = parallax.y = 0; }
     shake = Math.max(0, shake - dt);
     // Presentation time keeps running while paused so births, ghosts and particles settle.
     clock += dt;
@@ -1104,6 +1166,7 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     const alpha = clamp(state.alpha ?? 1, 0, 1);
     const cw = canvas.width / W, ch = canvas.height / H;
     const boltVerts = buildInstances(alpha, state);
+    let u;
     cellLight();
     const lightTex = lightPass().tex;
     const common = (u, vw = canvas.width, vh = canvas.height) => {
@@ -1115,12 +1178,20 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
       if (u.uViewport) gl.uniform2f(u.uViewport, vw, vh);
       if (u.uAtlasGrid) gl.uniform2f(u.uAtlasGrid, ATLAS_COLS, ATLAS_ROWS);
     };
+    // painted backdrop (half resolution): moon, stars, clouds, ink-wash ranges, mist
+    const backdropOn = stage ? stage.backdrop ? 1 : 0 : 1;
+    if (backdropOn) {
+      bind(back); blend(false);
+      u = use(prog.backdrop); common(u);
+      gl.uniform2f(u.uParallax, parallax.x, parallax.y); gl.uniform1f(u.uRise, stage?.rise ?? 0); gl.uniform1f(u.uAspect, canvas.width / canvas.height);
+      fullscreen();
+    }
     // fluid field
     bind(fluid); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     if (upload(fluids)) { blend('add'); common(use(prog.fluid)); drawQuads(fluids); }
     // scene
     bind(scene); blend(false);
-    let u = use(prog.bg, { uPaper: paperTex.tex, uFluid: fluid.tex, uLight: lightTex });
+    u = use(prog.bg, { uPaper: paperTex.tex, uFluid: fluid.tex, uLight: lightTex, uBack: back.tex }); gl.uniform1f(u.uBackdrop, backdropOn);
     common(u); gl.uniform2f(u.uCellUV, 1 / W, 1 / H); gl.uniform1f(u.uStorm, stage?.storm ?? 0); gl.uniform1f(u.uDark, stage?.dark ?? 0); fullscreen();
     blend('alpha');
     const drawParts = (batch, additive) => {
@@ -1180,6 +1251,8 @@ export function createGLRenderer({ canvas, gl, world, materials, K, mobile = fal
     setStage(value) { stage = value || null; },
     // Shapes drawn over the world each frame (the magic circle), in grid cells.
     setOverlay(value) { overlay = value || null; },
+    // Pointer position in -1..1 across the canvas; the painted ranges shift by depth.
+    setParallax(x, y) { parallax.tx = Math.max(-1, Math.min(1, x)); parallax.ty = Math.max(-1, Math.min(1, y)); parallax.inputAt = clock; },
     // Push toward 我 before inner sight: p in 0..1, zoom >= 1.
     setPush(p, zoom = 1) { push.p = motion ? p : 0; push.zoom = motion ? zoom : 1; },
     get player() { return { x: person.x, y: person.y }; },

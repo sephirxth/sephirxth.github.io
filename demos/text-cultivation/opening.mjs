@@ -89,7 +89,7 @@ export function createOpening({ renderer, K, width, height, sound = () => {}, mo
     { at: 17.0, run: () => sound('solidify', { x: width / 2, intensity: 1.4 }) },
   ];
   let t = 0, done = false, arcAt = 9.1, windAt = 0, rainAt = 0, prevSword = null;
-  const stage = { actors: [], lights: [], ribbons: [], storm: 0, dark: 0, unit: U };
+  const stage = { actors: [], lights: [], ribbons: [], storm: 0, dark: 0, unit: U, backdrop: true, rise: 0 };
 
   const swordAt = () => ({ x: cx + .15, y: me.y + 1.0 });
   function hit(n) {
@@ -117,6 +117,7 @@ export function createOpening({ renderer, K, width, height, sound = () => {}, mo
 
     // land and the sea of clouds slide away as we rise
     const drop = easeIn(span(t, 3.9, 7.6)) * (H * 1.25);
+    stage.rise = drop / H;
     if (drop < H + 8) {
       for (const a of land) {
         a.bt = span(t, .15 + a.delay, .45 + a.delay); a.y = a.baseY + drop;

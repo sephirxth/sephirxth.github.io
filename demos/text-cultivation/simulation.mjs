@@ -248,7 +248,11 @@ export class World {
             if (attempt(i, x, y + 1, swap)) continue;
             if (attempt(i, x + dir, y + 1, swap)) continue;
             if (attempt(i, x - dir, y + 1, swap)) continue;
-            if (kind === K.WATER || kind === K.MOLTEN) attempt(i, x + dir, y, swap);
+            // Liquids step sideways only toward a nearby place to fall, so a settled pool stays still.
+            if (kind === K.WATER || kind === K.MOLTEN) {
+              if (this.dropAhead(x, y, dir)) attempt(i, x + dir, y, swap);
+              else if (this.dropAhead(x, y, -dir)) attempt(i, x - dir, y, swap);
+            }
             // Ice floats up through water only; in air it stays put like wood and gold.
           } else if (kind === K.ICE && this.random() < .5 && this.kind[this.index(x, y - 1)] === K.WATER) attempt(i, x, y - 1, target => target === K.WATER);
         }
@@ -257,6 +261,17 @@ export class World {
     if (this.windActive) this.blow(dt, attempt);
     this.tick++;
     this.time += dt;
+  }
+  // Whether walking sideways along row y finds an open cell to fall into within `reach` cells.
+  dropAhead(x, y, d, reach = 8) {
+    const open = k => k === K.EMPTY || k === K.STEAM;
+    for (let k = 1; k <= reach; k++) {
+      const n = this.index(x + d * k, y);
+      if (n < 0 || !open(this.kind[n])) return false;
+      const below = this.index(x + d * k, y + 1);
+      if (below >= 0 && open(this.kind[below])) return true;
+    }
+    return false;
   }
   blow(dt, attempt) {
     let any = false;

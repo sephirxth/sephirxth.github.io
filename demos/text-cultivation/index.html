@@ -58,9 +58,15 @@
       </div>
       </div>
     </div>
+    <div class="guide" id="guide" hidden role="status" aria-live="polite">
+      <div class="guide-head"><span class="guide-step" id="guide-step"></span><button id="guide-skip" class="guide-skip" type="button">跳过引导</button></div>
+      <p class="guide-text" id="guide-text"></p>
+      <button id="guide-done" class="guide-done" type="button" hidden>开始玩</button>
+    </div>
     <div class="manual" id="manual" hidden>
       <div class="manual-card" role="dialog" aria-label="玩法与规则">
         <button id="manual-close" class="manual-close" type="button">关闭</button>
+        <button id="guide-restart" class="guide-restart" type="button">重看新手引导</button>
         <h1>文字修仙</h1>
         <p class="intro">选一个字，在纸上拖动。水会流，木会燃。</p>
         <p id="keyboard-help" class="keyboard-help">拖动写字。1–8 选材料，9 或 E 擦除。按住右键唤出法阵，左键在阵中画符，松开右键选方向，左键释放；没有右键时选“符”（0 或 F）点画布唤阵，从阵心向外一划释放。对着“我”滚轮往里推（或按 I）进入内观，Esc 出定。空格暂停，N 单步。方向键或 WASD 移动“我”，回车在身前写字。</p>

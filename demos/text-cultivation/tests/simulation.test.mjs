@@ -316,3 +316,16 @@ test('wind fans a flame along a wooden row', () => {
   };
   assert.ok(burn(true) > burn(false) + 2, `windy ${burn(true)} vs still ${burn(false)}`);
 });
+
+test('a settled puddle stays still, and water still finds a hole to fill', () => {
+  const world = new World(24, 7, { ambient: false });
+  for (let x = 0; x < 24; x++) world.set(x, 6, K.EARTH);
+  for (let x = 6; x < 12; x++) world.set(x, 5, K.WATER, { temp: 290 });
+  for (let i = 0; i < 60; i++) world.step();
+  const before = Array.from(world.kind).join('');
+  for (let i = 0; i < 60; i++) world.step();
+  assert.equal(Array.from(world.kind).join(''), before, 'no wandering on flat ground');
+  world.set(14, 6, K.EMPTY);
+  for (let i = 0; i < 40; i++) world.step();
+  assert.equal(world.kind[world.index(14, 6)], K.WATER, 'water ran into the hole');
+});

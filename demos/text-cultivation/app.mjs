@@ -18,8 +18,9 @@ function gridSize() {
 }
 // Measure the dock first: the canvas ends where the palette begins, so the ground is never hidden.
 function layoutDock() {
-  const dock = $('dock'), h = dock ? Math.ceil(dock.getBoundingClientRect().height) + 14 : 0;
+  const dock = $('dock'), h = dock ? Math.ceil(dock.getBoundingClientRect().height) + 14 : 0, top = document.querySelector('.hud-top');
   document.documentElement.style.setProperty('--dock', `${h}px`);
+  if (top) document.documentElement.style.setProperty('--hud-top', `${Math.ceil(top.getBoundingClientRect().height)}px`);
 }
 layoutDock();
 if ($('dock')) new ResizeObserver(layoutDock).observe($('dock'));
@@ -220,9 +221,11 @@ function endOpening(startScene = true) {
   effects.setStage(null); effects.fx.clear();
   $('skip-opening').hidden = true;
   if ($('example').value === 'opening') $('example').value = 'landscape';
-  if (startScene) reset();
+  if (startScene) { reset(); guide.maybeStart(); }
 }
 $('skip-opening').addEventListener('click', () => endOpening());
+// The painted ranges behind the world shift with the mouse (touch screens drift on their own).
+addEventListener('pointermove', event => { if (event.pointerType === 'mouse') effects.setParallax?.(event.clientX / innerWidth * 2 - 1, event.clientY / innerHeight * 2 - 1); }, { passive: true });
 // 说明 opens the rules over the game; 全屏 asks the browser for true full screen.
 const manual = $('manual');
 const showManual = open => { manual.hidden = !open; if (!open) canvas.focus({ preventScroll: true }); };
@@ -250,6 +253,7 @@ function enterInner() {
   effects.setPush(0); effects.fx.clear(); effects.fx.flash(.7);
   effects.setStage(inner.stage); inner.enter();
   innerToggle.textContent = '出定'; innerToggle.setAttribute('aria-pressed', 'true');
+  guide.hear('inner');
   note(satchel.length ? '内观。在字囊里点一个字，再点穴位放进去，右键取回。灵气沿小周天流转，相生的穴位相连更旺。滚轮向外或按 Esc 出定。' : '内观。穴位里只能放从天地里收来的字，字囊还是空的。出定后选“符”，画一个圆把湖水、树林或一片土圈起来。');
   sound('freeze', { x: player.x });
   wake();
@@ -261,6 +265,7 @@ function leaveInner() {
   pushLevel = .5; pushInputAt = -9;
   effects.fx.flash(.35);
   innerToggle.textContent = '内观'; innerToggle.setAttribute('aria-pressed', 'false');
+  guide.hear('leave');
   note(inner.total ? `出定。周天 ${inner.total.toFixed(2)}，灵力上限 ${simulation.maxSpirit}，每秒恢复 ${Math.round(simulation.regen * 20)}。` : '出定。穴位里还没有字。');
   wake();
 }
@@ -302,6 +307,7 @@ function innerPointer(event) {
     satchel.splice(satchelPick, 1); if (current) satchel.push(current); satchelPick = -1; renderSatchel();
     applyMeridians();
     sound('write', { kind, x: p.x, y: 1, intensity: 1.2 });
+    guide.hear('place', kind);
     const kinds = inner.kinds(), links = [];
     if (kinds[(n + 2) % 3]) links.push(relationText(kinds[(n + 2) % 3], kind));
     if (kinds[(n + 1) % 3]) links.push(relationText(kind, kinds[(n + 1) % 3]));
@@ -316,7 +322,7 @@ function innerHover(event) {
   if (n >= 0) { const kind = inner.kinds()[n]; status(`${SOCKETS[n].name}：${kind ? `「${materials[kind].glyph}」` : '空'}`, 1200); $('cell-info').textContent = `${SOCKETS[n].name} · ${SOCKETS[n].role}`; }
   wake();
 }
-if (new URLSearchParams(location.search).has('debug')) globalThis.__tc = { get state() { return { mode, pushLevel: +pushLevel.toFixed(3), breakAt: +breakAt.toFixed(2), presentTime: +presentTime.toFixed(2), opening: Boolean(opening), total: inner?.total ?? 0, circle: circle && { phase: circle.phase, runes: circle.runes.join('+'), touched: circle.touched.join(','), right: circle.rightHeld } }; } };
+if (new URLSearchParams(location.search).has('debug')) globalThis.__tc = { get state() { return { mode, pushLevel: +pushLevel.toFixed(3), breakAt: +breakAt.toFixed(2), presentTime: +presentTime.toFixed(2), opening: Boolean(opening), total: inner?.total ?? 0, circle: circle && { phase: circle.phase, runes: circle.runes.join('+'), touched: circle.touched.join(','), right: circle.rightHeld }, guide: guide.debug }; } };
 // 法阵 (after Lost Magic): hold the right button to call a circle around 我, draw runes across its
 // anchors with the left button, let go of the right button, aim, and click to release. Without a
 // right button (touch, or the 符 tool) tap to call the circle and flick outward from its centre to
@@ -350,6 +356,7 @@ function summonCircle(viaRight) {
   effects.fx?.flash(.12);
   sound('reset', { x: circle.center.x, intensity: .8 });
   status(viaRight ? '法阵已开：左键连锚点画符，松开右键选方向' : '法阵已开：在阵中画符，画好后从阵心向外一划释放', 2200);
+  guide.hear('summon');
   wake();
 }
 function dismissCircle(text) {
@@ -407,6 +414,7 @@ function finishStroke() {
     circle.failAt = presentTime; status('一个法阵最多叠两个符；收要单独画', 1600); sound('dry', { x: circle.center.x }); return;
   }
   circle.runes.push(rune); circle.flashAt = presentTime;
+  guide.hear('rune', rune);
   circle.snap = { pts: idealOutline(rune, circle.touched), at: presentTime };
   const combo = circle.runes.length === 2 ? COMBOS[keyOf(circle.runes)] : null;
   fx?.flash(.12);
@@ -434,6 +442,7 @@ function releaseCircle(dir) {
   const power = aff * (c.runes.length === 2 ? 1.3 : 1);
   const spell = release(key, c.center, { x: dir.x / len, y: dir.y / len }, power, { world, K, fx: effects.fx, emit: event => effects.emit(event), glyphIndex: GLYPH_INDEX, onCapture: (got, at) => capture(got, at) });
   if (spell) activeSpells.push(spell);
+  guide.hear('release', { key, count: c.runes.length });
   const fx = effects.fx;
   if (fx) {
     fx.flash(.22); fx.shake(.08);
@@ -448,6 +457,7 @@ function capture(got, at) {
   if (satchel.length >= 6) { note('字囊满了（最多六个字）。进内观把字放进穴位。'); return; }
   for (const [x, y] of got.cells) { world.set(x, y, K.EMPTY); effects.emit({ type: 'qi', x, y }); }
   satchel.push(got.kind); renderSatchel();
+  guide.hear('capture', got.kind);
   announce('收', at, [1, .86, .52], 1.6);
   note(`收得一个「${materials[got.kind].glyph}」，化去 ${got.cells.length} 格${materials[got.kind].name}。内观时把它放进穴位。`, 5000);
   sound('freeze', { x: at.x });
@@ -471,6 +481,22 @@ function circleOverlay() {
     marks.push({ type: fx.kinds.star, layer: 'add', x: c.center.x + a.x * R, y: c.center.y + a.y * R, s: .34 + .25 * glow + (hot ? .12 : 0), col: hot ? [1, .97, .8] : gold, a: (.55 + .45 * glow) * grow });
   }
   marks.push({ type: fx.kinds.disc, layer: 'add', x: c.center.x, y: c.center.y, s: .18, col: gold, a: .6 * grow });
+  const ghost = c.phase === 'draw' ? guide.ghost(c) : null;
+  if (ghost) {
+    // The guide traces the rune in dashes and makes the next anchor to reach pulse.
+    const path = idealOutline(ghost.rune, ghost.order).map(q => ({ x: c.center.x + q.x * R, y: c.center.y + q.y * R }));
+    const dense = [];
+    for (let k = 0; k < path.length - 1; k++) for (let s = 0; s < 8; s++) dense.push({ x: path[k].x + (path[k + 1].x - path[k].x) * s / 8, y: path[k].y + (path[k + 1].y - path[k].y) * s / 8 });
+    dense.push(path.at(-1));
+    const a = .3 + .2 * Math.sin(t * 4);
+    for (let k = 0; k + 1 < dense.length; k += 2) ribbons.push({ pts: [dense[k], dense[k + 1]], width: .05, col: [1, .95, .78], a: a * grow });
+    const seq = c.stroke ? c.touched : [];
+    let next = ghost.order[0];
+    if (ghost.rune === 'capture') next = seq.length ? (seq.at(-1) + 1) % 8 : ghost.order[0];
+    else { let k = 0; for (const s of seq) if (s === ghost.order[k]) k++; next = ghost.order[Math.min(k, ghost.order.length - 1)]; }
+    const n = ANCHORS[next];
+    marks.push({ type: fx.kinds.ring, layer: 'add', x: c.center.x + n.x * R, y: c.center.y + n.y * R, s: .55 + .22 * Math.sin(t * 8), col: [1, .95, .7], a: .95 * grow });
+  }
   if (c.snap && t - c.snap.at < .6) ribbons.push({ pts: c.snap.pts.map(q => ({ x: c.center.x + q.x * R, y: c.center.y + q.y * R })), width: .1, col: [1, .95, .75], a: 1 - (t - c.snap.at) / .6 });
   c.runes.forEach((r, i) => {
     const x = c.center.x + (c.runes.length === 1 ? 0 : (i ? .42 : -.42) * R), y = c.center.y + (c.runes.length === 2 ? .36 * R : 0);
@@ -489,6 +515,70 @@ function circleOverlay() {
   lights.push({ x: c.center.x, y: c.center.y, r: R * 1.3, col: [.35 * grow, .26 * grow, .1 * grow] });
   return { ribbons, marks, actors, lights };
 }
+function worldOverlay() {
+  const o = circle ? circleOverlay() : { ribbons: [], marks: [], actors: [], lights: [] };
+  if (guide.marksMe()) {
+    const t = presentTime, x = player.x + .5, y = player.y + .5, ring = effects.fx.kinds.ring;
+    o.marks.push({ type: ring, layer: 'add', x, y, s: 1.5 + .35 * Math.sin(t * 4), col: [1, .86, .5], a: .85 });
+    o.marks.push({ type: ring, layer: 'add', x, y, s: 2.4 + .5 * Math.sin(t * 4 + 1.2), col: [1, .86, .5], a: .4 });
+  }
+  return circle || o.marks.length ? o : null;
+}
+// 新手引导: nine steps through the loop, each waiting for the player to do it. Shown once
+// (remembered in localStorage when it is available) and replayable from 说明.
+const guide = (() => {
+  const touch = matchMedia('(pointer:coarse)').matches;
+  const card = $('guide'), stepEl = $('guide-step'), textEl = $('guide-text'), doneButton = $('guide-done'), KEY = 'tc-guide-v1';
+  const seen = () => { try { return localStorage.getItem(KEY) === 'done'; } catch { return false; } };
+  const remember = () => { try { localStorage.setItem(KEY, 'done'); } catch { /* Private mode: the guide may show again. */ } };
+  const ORDER = { fire: [6, 1, 3, 6], wind: [4, 5, 6, 7, 0], capture: [0, 1, 2, 3, 4, 5, 6, 7, 0] };
+  let index = -1, written = 0, target = null, advancing = false;
+  const steps = [
+    { text: '写字：在下方选一个字，比如<b>水</b>，在天地里按住左键拖动。每写一格耗 1 点灵力。', touch: '写字：在下方选一个字，比如<b>水</b>，用手指在天地里拖动。每写一格耗 1 点灵力。', ui: '#materials', hear: (e, d) => e === 'write' && (written += d) >= 6 },
+    { text: '唤阵：把鼠标移到红色的<b>我</b>附近，<b>按住右键</b>，法阵会在“我”身边亮起。', touch: '唤阵：在下方选<b>符</b>，再点一下画布，“我”身边会亮起法阵。', ui: touch ? '.material[data-kind="99"]' : null, me: true, hear: e => e === 'summon' },
+    { text: '画火符：右键别松，用<b>左键</b>依次连<b>上、右下、左下</b>三个锚点，再回到上面。跟着闪烁的锚点画。', touch: '画火符：在阵里依次连<b>上、右下、左下</b>三个锚点，再回到上面。跟着闪烁的锚点画。', ghost: () => 'fire', hear: (e, d) => e === 'rune' && d === 'fire' },
+    { text: '释放：<b>松开右键</b>，阵心伸出一支箭头。把鼠标指向远处，<b>左键点一下</b>，火符就飞出去。', touch: '释放：从阵心<b>往外划一笔</b>，火符就朝那边飞出去。', hear: e => e === 'release' },
+    { text: '叠阵：再唤阵，先画火符，再沿阵边从<b>左经上到右</b>画一道弧（风）。两个符叠成<b>火龙卷</b>，释放看看。', touch: '叠阵：再唤阵，先画火符，再沿阵边从<b>左经上到右</b>画一道弧（风）。两个符叠成<b>火龙卷</b>，往外一划释放。', ghost: c => c?.runes.length ? 'wind' : 'fire', hear: (e, d) => e === 'release' && d.count === 2 },
+    { text: '收字：唤阵，沿阵边<b>绕一整圈</b>画“收”，打向一片湖水、树林或山。收到的字会进下方的<b>字囊</b>。', touch: '收字：唤阵，沿阵边<b>绕一整圈</b>画“收”，再往外一划，打向一片湖水、树林或山。收到的字会进下方的<b>字囊</b>。', ghost: () => 'capture', ui: '#satchel', hear: e => e === 'capture' },
+    { text: '内观：鼠标对着<b>我</b>一直<b>向前滚动滚轮</b>。越往里阻力越大，一停就弹回，推破就进去了。也可以点上方的<b>内观</b>。', touch: '内观：点上方的<b>内观</b>，推进“我”的体内。', ui: '#inner-toggle', me: true, hear: e => e === 'inner' },
+    { text: '放字：在下方字囊里点刚收的字，再点最下面那个穴位<b>下丹田</b>。穴位里的字决定灵力上限、恢复速度和各种符的亲和。', touch: '放字：在下方字囊里点刚收的字，再点最下面那个穴位<b>下丹田</b>。穴位里的字决定灵力上限、恢复速度和各种符的亲和。', ui: '#satchel', hear: e => e === 'place' },
+    { text: '出定：按 <b>Esc</b>，或把滚轮往回滚。', touch: '出定：点上方的<b>出定</b>。', ui: touch ? '#inner-toggle' : null, hear: e => e === 'leave' },
+  ];
+  const clearTarget = () => { target?.classList.remove('guide-target'); target = null; };
+  function show() {
+    const s = steps[index];
+    clearTarget();
+    stepEl.textContent = `新手引导 · 第 ${index + 1} 步 / 共 ${steps.length} 步`;
+    textEl.innerHTML = touch ? s.touch : s.text;
+    doneButton.hidden = true;
+    if (s.ui) { target = document.querySelector(s.ui); target?.classList.add('guide-target'); }
+    card.hidden = false;
+  }
+  function finish() {
+    clearTarget();
+    stepEl.textContent = '新手引导 · 完成';
+    textEl.innerHTML = `引导结束。灵力上限现在是 <b>${simulation.maxSpirit}</b>。再试试别的组合：<b>火＋土</b>熔岩、<b>风＋土</b>沙暴、<b>土＋土</b>山岳。玩法都在“说明”里。`;
+    doneButton.hidden = false; index = steps.length; remember();
+  }
+  function advance() {
+    advancing = true;
+    card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+    sound('solidify', { x: world.width / 2, intensity: 1.3 });
+    setTimeout(() => { advancing = false; index++; if (index >= steps.length) finish(); else show(); wake(); }, 650);
+  }
+  function stop() { clearTarget(); card.hidden = true; index = -1; remember(); wake(); }
+  function start() { index = 0; written = 0; show(); wake(); }
+  $('guide-skip').addEventListener('click', stop);
+  doneButton.addEventListener('click', stop);
+  $('guide-restart').addEventListener('click', () => { showManual(false); start(); });
+  return {
+    maybeStart() { if (!seen() && index < 0) setTimeout(() => { if (!opening && index < 0) start(); }, 1400); },
+    get debug() { return { index, written, advancing }; },
+    hear(event, data) { const s = steps[index]; if (!advancing && s && s.hear(event, data)) advance(); },
+    marksMe() { return Boolean(steps[index]?.me) && !circle && mode === 'world'; },
+    ghost(c) { const s = steps[index]; if (!s?.ghost) return null; const rune = s.ghost(c); return { rune, order: ORDER[rune] }; },
+  };
+})();
 // 灵气 from reactions flows back to 我; meridians decide how much is absorbed.
 const QI_EVENTS = new Set(['ignite', 'boil', 'condense', 'freeze', 'thaw', 'melt', 'solidify', 'extinguish', 'lightning']);
 let qiTokens = 20, qiAt = 0;
@@ -558,6 +648,7 @@ function paintAt(p, kind = selected) {
 }
 function acknowledgeWrite(count, p, kind) {
   if (!count) return;
+  if (kind) guide.hear('write', count);
   sound(kind ? 'write' : 'erase', { ...p, kind, intensity: Math.min(2, .6 + count * .08) });
   if (kind) { spentUntil = performance.now() + 180; if (spiritGroup) spiritGroup.dataset.state = 'spent'; }
   wake();
@@ -670,7 +761,7 @@ new ResizeObserver(fit).observe(canvas);
 // Wait briefly for the brush face so the first written scene uses it.
 await Promise.race([document.fonts?.load?.('64px BrushKai', '水火木金土冰汽雷灰我') ?? Promise.resolve(), new Promise(done => setTimeout(done, 1500))]).catch(() => {});
 fit();
-if (fullMotion && effects.setStage) playOpening(); else reset();
+if (fullMotion && effects.setStage) playOpening(); else { reset(); guide.maybeStart(); }
 document.fonts.ready.then(() => { effects.invalidate(); wake(); });
 function frame(now) {
   animation = 0;
@@ -694,11 +785,11 @@ function frame(now) {
     if (breakAt >= 0) { pushLevel = Math.min(1, pushLevel + dt * 2.5); if (presentTime - breakAt > .28) enterInner(); }
     else if (!autoPush) pushLevel = Math.max(0, pushLevel - dt * (.35 * pushLevel + .02));
     if (pushLevel < .3) pushThud = false;
-    if (pushLevel > .04 && breakAt < 0) status(`内观 ${Math.round(pushLevel / .8 * 100)}%`, 350);
+    if (pushLevel > .04 && breakAt < 0 && (autoPush || presentTime - pushInputAt < .5)) status(`内观 ${Math.round(pushLevel / .8 * 100)}%`, 350);
     effects.setPush?.(pushLevel, 1 + 1.8 * Math.pow(pushLevel, 1.4));
     if (pushLevel > .2 && (autoPush || breakAt >= 0 || presentTime - pushInputAt < .4)) effects.fx?.shake(.02 + pushLevel * .06);
   }
-  effects.setOverlay?.(circle && mode === 'world' ? circleOverlay() : null);
+  effects.setOverlay?.(mode === 'world' && effects.fx ? worldOverlay() : null);
   if (mode === 'world' && !simulation.paused) for (let i = activeSpells.length - 1; i >= 0; i--) if (!activeSpells[i].update(dt)) activeSpells.splice(i, 1);
   const events = consumeEffects();
   if (pointer && cursor) {
